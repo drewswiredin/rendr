@@ -2,7 +2,7 @@
 
 import { SPEC_DATA_PART_TYPE } from "@json-render/core";
 import { useJsonRenderMessage } from "@json-render/react";
-import type { UIMessage } from "ai";
+import type { ToolUIPart, UIMessage } from "ai";
 import {
   isDynamicToolUIPart,
   isFileUIPart,
@@ -29,6 +29,7 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { ArtifactCard } from "./artifact-card";
+import { ResearchTrail } from "./research-trail";
 import { UIRender } from "./ui-render";
 
 const ARTIFACT_TOOLS = new Set([
@@ -54,12 +55,55 @@ export function MessageParts({ message, isStreaming }: MessagePartsProps) {
     (p) => p.type === SPEC_DATA_PART_TYPE,
   );
 
+  // Consecutive research (MCP) tool calls — ignoring step markers and the
+  // reasoning between them — collapse into one trail, rendered at the first.
+  const trailStart = new Map<number, ToolUIPart[]>();
+  const inTrail = new Set<number>();
+  for (let i = 0; i < message.parts.length; i++) {
+    if (inTrail.has(i)) {
+      continue;
+    }
+    const part = message.parts[i];
+    if (!(isStaticToolUIPart(part) && !ARTIFACT_TOOLS.has(part.type))) {
+      continue;
+    }
+    const run: ToolUIPart[] = [part];
+    inTrail.add(i);
+    let pending: number[] = [];
+    for (let j = i + 1; j < message.parts.length; j++) {
+      const next = message.parts[j];
+      if (isStaticToolUIPart(next) && !ARTIFACT_TOOLS.has(next.type)) {
+        run.push(next);
+        inTrail.add(j);
+        // The thinking between two lookups is part of the same act.
+        for (const k of pending) {
+          inTrail.add(k);
+        }
+        pending = [];
+      } else if (next.type === "step-start" || isReasoningUIPart(next)) {
+        pending.push(j);
+      } else {
+        break;
+      }
+    }
+    trailStart.set(i, run);
+  }
+
   return (
     <Message from={message.role}>
       <MessageContent>
         {message.parts.map((part, index) => {
           const key = `${message.id}-${index}`;
           const isLast = index === message.parts.length - 1;
+
+          if (trailStart.has(index)) {
+            return (
+              <ResearchTrail key={key} parts={trailStart.get(index) ?? []} />
+            );
+          }
+          if (inTrail.has(index)) {
+            return null;
+          }
 
           if (part.type === SPEC_DATA_PART_TYPE) {
             if (index !== firstSpecIndex || !hasSpec) {

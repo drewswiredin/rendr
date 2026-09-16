@@ -174,7 +174,7 @@ export async function POST(request: Request) {
 
   await saveMessages({ chatId: id, messages: [last] });
 
-  const agent = createAgent({
+  const agent = await createAgent({
     modelId: resolveModelId(modelId),
     chatId: id,
     guestId,

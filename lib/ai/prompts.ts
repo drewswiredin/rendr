@@ -90,8 +90,38 @@ Craft:
 - No external network beyond the manifest hosts (and OpenStreetMap tiles for Leaflet). No alert/prompt/confirm.
 - Prefer classic scripts from the manifest; for ESM entries use <script type="module"> with an import map when addons need a bare specifier.`;
 
-export function buildSystemPrompt() {
-  return [identity, formSelection, inlineUi, workspace, pieces].join("\n\n");
+export function research(servers: string[]) {
+  if (servers.length === 0) {
+    return "";
+  }
+  return `**Research tools**
+
+You can look things up. Available:
+${servers.join("\n")}
+
+Use them when the answer depends on facts you can't be sure of — recent events, prices, schedules, specifics about a place or product — or when the user asks for sources, or when a real picture would beat a description (a stretch, a landmark, a dish, an animal). Don't search for things you know well; don't narrate the searching, just use what you found.
+
+Showing what you found:
+- Cite sources as markdown links; keep quotes short.
+- Images: show them with the Images piece (grid with captions and links to the source page) or inline with \`![alt](url)\`. Use real image URLs from results (not page URLs); prefer 2–4 well-chosen images over many. Always credit the source.
+- Data you fetched can feed a chart, table, or Compare directly.`;
+}
+
+export function buildSystemPrompt({
+  mcpServers = [],
+}: {
+  mcpServers?: string[];
+} = {}) {
+  return [
+    identity,
+    formSelection,
+    inlineUi,
+    workspace,
+    pieces,
+    research(mcpServers),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export const titlePrompt = `You write titles for chat conversations. You will be shown the user's first message. Do NOT answer it. Reply with ONLY a 2-5 word title that summarizes the topic: no prefixes, no quotes, no punctuation at the end, no formatting.`;

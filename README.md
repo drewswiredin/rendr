@@ -16,6 +16,16 @@ wall of text.
 | Freeform pieces | agent-authored HTML: animations, interactives, 3D, simulations | an **MCP Apps host**: the piece runs on a second origin behind a CSP; a pinned, load-tested CDN manifest (`lib/pieces/manifest.ts`) is the only source of libraries; `rendr.send()` / `rendr.setContext()` let the piece talk back |
 | Artifacts | persistent, versioned, iterated | the stage: a pane of tabs; `html` / `mermaid` / `markdown` kinds, agent tools + user edits, version history |
 
+## Research (MCP)
+
+The agent can use any MCP server's tools. `rendr.mcp.json` lists them; with no
+keys it runs DuckDuckGo search + page fetch (via `uvx`, so Python's `uv` must be
+installed). Set `BRAVE_API_KEY` or `TAVILY_API_KEY` and the keyed provider
+replaces DuckDuckGo automatically. Add any other server (stdio or HTTP) the same
+way — Firecrawl, Exa, a database, your own. Found images go into an `Images`
+piece with captions and source links; consecutive lookups collapse into one
+"Looked up …" line in the thread.
+
 ## Stack
 
 Next.js 16 · React 19 · Tailwind 4 · shadcn (Radix) · AI Elements · AI SDK 7
@@ -50,6 +60,7 @@ lib/ai/prompts.ts          identity + form-selection rubric, assembled per chann
 lib/ai/models.ts           model list (OpenRouter ids)
 lib/ai/tools/artifacts.ts  createArtifact / editArtifact / rewriteArtifact / readArtifact / listArtifacts
 lib/ui/catalog.ts          inline-UI vocabulary (Zod); lib/ui/registry.tsx renders it
+lib/mcp/                   MCP client registry: rendr.mcp.json → agent tools
 lib/pieces/manifest.ts     pinned CDN library menu for pieces (also feeds the sandbox CSP)
 lib/pieces/host.ts         MCP Apps host (AppBridge over the sandbox proxy)
 public/sandbox.{html,js}   the sandbox proxy page (second origin)

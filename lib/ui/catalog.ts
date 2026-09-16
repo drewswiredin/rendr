@@ -308,6 +308,40 @@ export const uiCatalog = defineCatalog(schema, {
         "A day-by-day plan with time slots: trips, event schedules, study plans.",
     },
 
+    Images: {
+      props: z.object({
+        title: z.string().nullable(),
+        images: z.array(
+          z.object({
+            url: z.string().describe("direct image URL (jpg/png/webp/gif)"),
+            alt: z.string(),
+            caption: z.string().nullable(),
+            href: z.string().nullable().describe("source page to link to"),
+            credit: z
+              .string()
+              .nullable()
+              .describe("photographer / site / license"),
+          }),
+        ),
+        columns: z.enum(["1", "2", "3"]).nullable(),
+      }),
+      description:
+        "A grid of real images found on the web (places, people, poses, products, artworks), each with a caption and a link to its source. 1-6 images.",
+      example: {
+        title: "Rome's big three",
+        images: [
+          {
+            url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/640px-Colosseo_2020.jpg",
+            alt: "The Colosseum at dawn",
+            caption: "Colosseum",
+            href: "https://commons.wikimedia.org/wiki/File:Colosseo_2020.jpg",
+            credit: "Wikimedia Commons, CC BY-SA 4.0",
+          },
+        ],
+        columns: "3",
+      },
+    },
+
     Choices: {
       props: z.object({
         prompt: z

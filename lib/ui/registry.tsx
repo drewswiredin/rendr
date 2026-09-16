@@ -664,6 +664,71 @@ export const { registry } = defineRegistry(uiCatalog, {
       </div>
     ),
 
+    Images: ({ props }) => {
+      const cols =
+        props.columns ??
+        (props.images?.length === 1
+          ? "1"
+          : props.images?.length === 2
+            ? "2"
+            : "3");
+      return (
+        <figure className="m-0">
+          {props.title && (
+            <p className="mb-2 font-medium text-sm">{props.title}</p>
+          )}
+          <div
+            className={cn(
+              "grid gap-3",
+              cols === "1"
+                ? "grid-cols-1"
+                : cols === "2"
+                  ? "grid-cols-2"
+                  : "grid-cols-2 sm:grid-cols-3",
+            )}
+          >
+            {(props.images ?? []).map((img, i) => {
+              const picture = (
+                // biome-ignore lint/performance/noImgElement: remote image, unknown dimensions
+                <img
+                  alt={img.alt}
+                  className="aspect-[4/3] w-full rounded-lg border bg-muted object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={img.url}
+                />
+              );
+              return (
+                <figure
+                  className="m-0 flex flex-col gap-1"
+                  key={`${img.url}-${i}`}
+                >
+                  {img.href ? (
+                    <a
+                      href={img.href}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      {picture}
+                    </a>
+                  ) : (
+                    picture
+                  )}
+                  {(img.caption || img.credit) && (
+                    <figcaption className="text-muted-foreground text-xs leading-snug">
+                      {img.caption}
+                      {img.caption && img.credit ? " · " : ""}
+                      {img.credit}
+                    </figcaption>
+                  )}
+                </figure>
+              );
+            })}
+          </div>
+        </figure>
+      );
+    },
+
     Choices: ({ props }) => (
       <ChoicesButtons choices={props.choices ?? []} prompt={props.prompt} />
     ),

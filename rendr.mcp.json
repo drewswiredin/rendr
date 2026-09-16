@@ -1,0 +1,30 @@
+{
+  "$comment": "MCP servers whose tools the agent can use (research, data, anything). `requires`: env vars that must be set for the server to load; `unless`: skip the server when any of these env vars is set (so a keyed provider replaces the keyless default). `${VAR}` in env/args/url is substituted from the environment.",
+  "servers": {
+    "web": {
+      "description": "DuckDuckGo web search and page fetching (no key)",
+      "command": "uvx",
+      "args": ["duckduckgo-mcp-server"],
+      "unless": ["BRAVE_API_KEY", "TAVILY_API_KEY"]
+    },
+    "fetch": {
+      "description": "Fetch a URL and return its content as markdown (no key)",
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    "brave": {
+      "description": "Brave Search: web, images, news, video",
+      "command": "npx",
+      "args": ["-y", "@brave/brave-search-mcp-server"],
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" },
+      "requires": ["BRAVE_API_KEY"]
+    },
+    "tavily": {
+      "description": "Tavily search, extract, crawl",
+      "command": "npx",
+      "args": ["-y", "tavily-mcp"],
+      "env": { "TAVILY_API_KEY": "${TAVILY_API_KEY}" },
+      "requires": ["TAVILY_API_KEY"]
+    }
+  }
+}
