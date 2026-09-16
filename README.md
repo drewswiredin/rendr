@@ -21,7 +21,9 @@ wall of text.
 Next.js 16 · React 19 · Tailwind 4 · shadcn (Radix) · AI Elements · AI SDK 7
 (`ToolLoopAgent`) · OpenRouter · Streamdown · drizzle + libsql (SQLite) · Biome.
 
-No accounts: a guest cookie scopes chats per browser.
+No accounts: a guest cookie scopes chats per browser. A collapsible sidebar
+lists past conversations; attachments (images, PDFs, text) are stored under
+`data/uploads`.
 
 Pieces need a second origin for their sandbox. In development the app is
 reached at `localhost:3000` and the sandbox at `127.0.0.1:3000` automatically;
@@ -56,7 +58,9 @@ public/mcp-app.js          bundled @modelcontextprotocol/ext-apps app SDK (pnpm 
 lib/artifacts/             kinds + server store (versions)
 lib/db/                    drizzle schema, queries, migrations
 stores/artifacts.ts        client store for the stage (artifacts, drafts, active tab)
-components/chat/           chat shell, message part renderers, artifact cards, model picker
+components/chat/           chat shell, message part renderers, artifact cards, model picker,
+                           history sidebar, attachments
+app/api/                   chat (agent stream), artifacts, chats, upload, files
 components/stage/          the stage pane, per-kind views, message-stream sync
 components/ai-elements/    AI Elements (shadcn-style, re-addable via the CLI)
 ```

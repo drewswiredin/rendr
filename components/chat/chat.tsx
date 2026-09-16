@@ -28,12 +28,19 @@ import {
 import { ArtifactSync } from "@/components/stage/artifact-sync";
 import { Stage } from "@/components/stage/stage";
 import { Button } from "@/components/ui/button";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { MODEL_COOKIE } from "@/lib/ai/models";
 import type { ArtifactSnapshot } from "@/lib/artifacts/kinds";
 import { cn } from "@/lib/utils";
 import { useArtifacts } from "@/stores/artifacts";
+import { useHistory } from "@/stores/history";
 import { ChatProvider } from "./chat-context";
 import { ComposerAttachments } from "./composer-attachments";
+import { HistorySidebar } from "./history-sidebar";
 import { MessageParts } from "./message-parts";
 import { ModelPicker } from "./model-picker";
 import { uploadAttachments } from "./upload";
@@ -97,12 +104,17 @@ export function Chat({
     [],
   );
 
+  const refreshHistory = useHistory((s) => s.refresh);
   const { messages, sendMessage, status, stop } = useChat({
     id,
     messages: initialMessages,
     transport,
     onError: (error) => {
       toast.error(error.message || "Something went wrong");
+    },
+    // Titles are generated after the first reply; pick them up.
+    onFinish: () => {
+      refreshHistory();
     },
   });
 
@@ -156,98 +168,102 @@ export function Chat({
 
   return (
     <ChatProvider value={chatActions}>
-      <div className="flex h-dvh min-h-0 flex-row">
-        <ArtifactSync messages={messages} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {hasArtifacts && !stageOpen && (
-            <Button
-              aria-label="Open stage"
-              className="absolute top-3 right-3 z-10"
-              onClick={() => setStageOpen(true)}
-              size="icon-sm"
-              variant="outline"
-            >
-              <PanelRightOpenIcon className="size-4" />
-            </Button>
-          )}
-          {messages.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <ConversationEmptyState
-                description="Ask anything. The answer takes whatever shape fits it best."
-                title="rendr"
-              />
-            </div>
-          ) : (
-            <Conversation className="min-h-0 flex-1">
-              <ConversationContent className="mx-auto w-full max-w-3xl">
-                {messages.map((message, index) => (
-                  <MessageParts
-                    isStreaming={
-                      status === "streaming" && index === messages.length - 1
-                    }
-                    key={message.id}
-                    message={message}
-                  />
-                ))}
-              </ConversationContent>
-              <ConversationScrollButton />
-            </Conversation>
-          )}
+      <SidebarProvider className="h-dvh min-h-0">
+        <HistorySidebar currentChatId={id} />
+        <SidebarInset className="flex h-dvh min-h-0 flex-row overflow-hidden">
+          <ArtifactSync messages={messages} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <SidebarTrigger className="absolute top-3 left-3 z-10" />
+            {hasArtifacts && !stageOpen && (
+              <Button
+                aria-label="Open stage"
+                className="absolute top-3 right-3 z-10"
+                onClick={() => setStageOpen(true)}
+                size="icon-sm"
+                variant="outline"
+              >
+                <PanelRightOpenIcon className="size-4" />
+              </Button>
+            )}
+            {messages.length === 0 ? (
+              <div className="flex min-h-0 flex-1 items-center justify-center">
+                <ConversationEmptyState
+                  description="Ask anything. The answer takes whatever shape fits it best."
+                  title="rendr"
+                />
+              </div>
+            ) : (
+              <Conversation className="min-h-0 flex-1">
+                <ConversationContent className="mx-auto w-full max-w-3xl">
+                  {messages.map((message, index) => (
+                    <MessageParts
+                      isStreaming={
+                        status === "streaming" && index === messages.length - 1
+                      }
+                      key={message.id}
+                      message={message}
+                    />
+                  ))}
+                </ConversationContent>
+                <ConversationScrollButton />
+              </Conversation>
+            )}
 
-          <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-            <PromptInput
-              accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json"
-              globalDrop
-              maxFileSize={20 * 1024 * 1024}
-              multiple
-              onError={(error) =>
-                toast.error(
-                  error.code === "max_file_size"
-                    ? "Files must be under 20 MB"
-                    : error.code === "accept"
-                      ? "That file type isn't supported"
-                      : error.message,
-                )
-              }
-              onSubmit={handleSubmit}
-            >
-              <PromptInputHeader>
-                <ComposerAttachments />
-              </PromptInputHeader>
-              <PromptInputBody>
-                <PromptInputTextarea
-                  onChange={(event) => setText(event.target.value)}
-                  placeholder="Ask anything…"
-                  value={text}
-                />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger />
-                    <PromptInputActionMenuContent>
-                      <PromptInputActionAddAttachments />
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
-                  <ModelPicker onChange={setModelId} value={modelId} />
-                </PromptInputTools>
-                <PromptInputSubmit
-                  disabled={!(text.trim() || isBusy)}
-                  status={status}
-                />
-              </PromptInputFooter>
-            </PromptInput>
+            <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+              <PromptInput
+                accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json"
+                globalDrop
+                maxFileSize={20 * 1024 * 1024}
+                multiple
+                onError={(error) =>
+                  toast.error(
+                    error.code === "max_file_size"
+                      ? "Files must be under 20 MB"
+                      : error.code === "accept"
+                        ? "That file type isn't supported"
+                        : error.message,
+                  )
+                }
+                onSubmit={handleSubmit}
+              >
+                <PromptInputHeader>
+                  <ComposerAttachments />
+                </PromptInputHeader>
+                <PromptInputBody>
+                  <PromptInputTextarea
+                    onChange={(event) => setText(event.target.value)}
+                    placeholder="Ask anything…"
+                    value={text}
+                  />
+                </PromptInputBody>
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    <PromptInputActionMenu>
+                      <PromptInputActionMenuTrigger />
+                      <PromptInputActionMenuContent>
+                        <PromptInputActionAddAttachments />
+                      </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
+                    <ModelPicker onChange={setModelId} value={modelId} />
+                  </PromptInputTools>
+                  <PromptInputSubmit
+                    disabled={!(text.trim() || isBusy)}
+                    status={status}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
+            </div>
           </div>
-        </div>
-        <div
-          className={cn(
-            "h-full shrink-0 transition-[width] duration-300 ease-out",
-            stageOpen && hasArtifacts ? "w-[58%]" : "w-0",
-          )}
-        >
-          {stageOpen && hasArtifacts && <Stage />}
-        </div>
-      </div>
+          <div
+            className={cn(
+              "h-full shrink-0 transition-[width] duration-300 ease-out",
+              stageOpen && hasArtifacts ? "w-[58%]" : "w-0",
+            )}
+          >
+            {stageOpen && hasArtifacts && <Stage />}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     </ChatProvider>
   );
 }
