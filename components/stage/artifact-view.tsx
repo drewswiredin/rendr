@@ -53,11 +53,13 @@ export function ArtifactView({
     return (
       <div className="h-full overflow-auto p-4">
         <Streamdown
-          className="[&_.streamdown-mermaid]:my-0"
+          // Mermaid draws at its natural size; on the stage let the diagram
+          // (the svg with an aria role, not the toolbar icons) fill the pane.
+          className="[&_[data-streamdown=mermaid]_.justify-center]:w-full [&_[data-streamdown=mermaid]_svg[aria-roledescription]]:h-[75vh] [&_[data-streamdown=mermaid]_svg[aria-roledescription]]:w-full"
           isAnimating={streaming}
           plugins={plugins}
         >
-          {`\`\`\`mermaid\n${content}\n\`\`\``}
+          {mermaidFence(content)}
         </Streamdown>
       </div>
     );
@@ -76,6 +78,14 @@ export function ArtifactView({
       </Streamdown>
     </div>
   );
+}
+
+// A fence longer than any run of backticks in the source, so a diagram whose
+// labels mention ``` can't close the fence early.
+function mermaidFence(source: string): string {
+  const runs = [...source.matchAll(/`+/g)].map((m) => m[0].length + 1);
+  const fence = "`".repeat(Math.max(3, ...runs));
+  return `${fence}mermaid\n${source}\n${fence}`;
 }
 
 export function SourcePre({ content }: { content: string }) {
