@@ -144,13 +144,14 @@ export function Chat({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
+      // While a reply streams, the submit button is the stop button.
+      if (isBusy) {
+        stop();
+        return;
+      }
       const text = message.text?.trim() ?? "";
       const hasFiles = (message.files?.length ?? 0) > 0;
       if (!(text || hasFiles)) {
-        return;
-      }
-      if (isBusy) {
-        stop();
         return;
       }
       // Attachments arrive as data URLs; store them and send short URLs so
