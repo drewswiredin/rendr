@@ -8,6 +8,7 @@ export default async function NewChatPage() {
   return (
     <Chat
       id={crypto.randomUUID()}
+      initialArtifacts={[]}
       initialMessages={[]}
       initialModelId={modelId}
     />

@@ -24,6 +24,15 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
+import { ArtifactCard } from "./artifact-card";
+
+const ARTIFACT_TOOLS = new Set([
+  "tool-createArtifact",
+  "tool-editArtifact",
+  "tool-rewriteArtifact",
+  "tool-readArtifact",
+  "tool-listArtifacts",
+]);
 
 type MessagePartsProps = {
   message: UIMessage;
@@ -60,6 +69,10 @@ export function MessageParts({ message, isStreaming }: MessagePartsProps) {
                 <ReasoningContent>{part.text}</ReasoningContent>
               </Reasoning>
             );
+          }
+
+          if (isStaticToolUIPart(part) && ARTIFACT_TOOLS.has(part.type)) {
+            return <ArtifactCard key={key} part={part} />;
           }
 
           if (isStaticToolUIPart(part) || isDynamicToolUIPart(part)) {

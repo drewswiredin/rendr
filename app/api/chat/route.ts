@@ -50,6 +50,28 @@ async function generateTitle(message: UIMessage): Promise<string> {
   }
 }
 
+// Surface the provider's reason (rate limit, credits, model unavailable) to the
+// user instead of the SDK's default "An error occurred".
+function describeError(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as {
+      statusCode?: number;
+      data?: { error?: { message?: string } };
+      message?: string;
+    };
+    const providerMessage = e.data?.error?.message;
+    if (providerMessage) {
+      return e.statusCode
+        ? `${providerMessage} (HTTP ${e.statusCode})`
+        : providerMessage;
+    }
+    if (typeof e.message === "string" && e.message) {
+      return e.message;
+    }
+  }
+  return "Something went wrong while generating the reply.";
+}
+
 export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -79,13 +101,18 @@ export async function POST(request: Request) {
 
   await saveMessages({ chatId: id, messages: [last] });
 
-  const agent = createAgent({ modelId: resolveModelId(modelId) });
+  const agent = createAgent({
+    modelId: resolveModelId(modelId),
+    chatId: id,
+    guestId,
+  });
 
   return createAgentUIStreamResponse({
     agent,
     uiMessages: messages,
     originalMessages: messages,
     generateMessageId: () => crypto.randomUUID(),
+    onError: describeError,
     onEnd: async ({ responseMessage }) => {
       await saveMessages({ chatId: id, messages: [responseMessage] });
     },

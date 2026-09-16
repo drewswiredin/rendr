@@ -14,7 +14,7 @@ wall of text.
 | Prose | always on | Streamdown (markdown, mermaid, math, code) |
 | Structured inline UI | ephemeral, constrained | json-render over a shadcn catalog *(step 3)* |
 | Freeform pieces | agent-authored HTML, animations, interactives | sandboxed MCP Apps host with a pinned CDN library manifest *(step 4)* |
-| Artifacts | persistent, versioned, iterated | side pane; `html` / `mermaid` / `markdown` kinds *(step 2)* |
+| Artifacts | persistent, versioned, iterated | the stage: a pane of tabs; `html` / `mermaid` / `markdown` kinds, agent tools + user edits, version history |
 
 ## Stack
 
@@ -41,8 +41,12 @@ app/api/chat/route.ts      agent request handler; persists messages
 lib/ai/agent.ts            ToolLoopAgent factory (tools are added per channel)
 lib/ai/prompts.ts          identity + form-selection rubric, assembled per channel
 lib/ai/models.ts           model list (OpenRouter ids)
+lib/ai/tools/artifacts.ts  createArtifact / editArtifact / rewriteArtifact / readArtifact / listArtifacts
+lib/artifacts/             kinds + server store (versions)
 lib/db/                    drizzle schema, queries, migrations
-components/chat/           chat shell, message part renderers, model picker
+stores/artifacts.ts        client store for the stage (artifacts, drafts, active tab)
+components/chat/           chat shell, message part renderers, artifact cards, model picker
+components/stage/          the stage pane, per-kind views, message-stream sync
 components/ai-elements/    AI Elements (shadcn-style, re-addable via the CLI)
 ```
 
