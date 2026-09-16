@@ -1,7 +1,7 @@
 "use client";
 
 import { SPEC_DATA_PART_TYPE } from "@json-render/core";
-import { useJsonRenderMessage } from "@json-render/react";
+import { buildSpecFromParts } from "@json-render/react";
 import type { ToolUIPart, UIMessage } from "ai";
 import {
   isDynamicToolUIPart,
@@ -11,6 +11,7 @@ import {
   isTextUIPart,
 } from "ai";
 import { FileIcon } from "lucide-react";
+import { useMemo } from "react";
 import {
   Message,
   MessageContent,
@@ -50,7 +51,18 @@ type MessagePartsProps = {
 export function MessageParts({ message, isStreaming }: MessagePartsProps) {
   // One inline UI spec per message, assembled from its data-spec parts and
   // rendered where the first of them sits.
-  const { spec, hasSpec } = useJsonRenderMessage(message.parts);
+  // buildSpecFromParts mutates the patch values it is handed (an array added
+  // at /state/rows keeps receiving inserts on every rebuild), so a streaming
+  // message would show its rows duplicated. Build from a fresh deep copy.
+  const spec = useMemo(() => {
+    const cloned = message.parts.map((p) =>
+      p.type === SPEC_DATA_PART_TYPE ? structuredClone(p) : p,
+    );
+    return buildSpecFromParts(
+      cloned as Parameters<typeof buildSpecFromParts>[0],
+    );
+  }, [message.parts]);
+  const hasSpec = spec !== null;
   const firstSpecIndex = message.parts.findIndex(
     (p) => p.type === SPEC_DATA_PART_TYPE,
   );
