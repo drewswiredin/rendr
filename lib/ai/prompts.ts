@@ -1,3 +1,5 @@
+import { uiCatalog } from "@/lib/ui/catalog";
+
 // The system prompt is assembled from sections. Each presentation channel
 // (inline UI, artifacts, freeform pieces) contributes its own section as it
 // is added; `identity` and `formSelection` are always present.
@@ -46,8 +48,29 @@ Etiquette:
 - The user can edit artifacts directly; their edits are the source of truth. readArtifact before editing if they may have changed something.
 - Don't create an artifact for something that fits in a sentence or a small table.`;
 
+export const inlineUi = `**Inline UI (in your reply)**
+
+Besides markdown, a reply can carry ONE structured piece rendered inline: a comparison, key facts, steps, a timeline, an itinerary, a chart, a callout, or a question with choices. It is ephemeral — part of this reply, not the stage.
+
+When to use it: the content has a shape prose would flatten (options side by side, a sequence with details, numbers to compare, a plan by day) or you need 1-3 facts from the user (Choices, or inputs + a Button whose on.press is the reply action).
+When not to: chit-chat, nuance, argument, anything a sentence or a small markdown table covers. Most replies have no piece. Never more than one piece per reply; put a related visual in the same piece.
+
+Prose first, then the piece, then (optionally) a closing line. The user can expand the piece on the stage or ask to pin it as an artifact.
+
+${uiCatalog.prompt({
+  mode: "inline",
+  customRules: [
+    "Prefer the composites (Compare, KeyFacts, Steps, Itinerary, ProsCons, Choices) over assembling the same thing from Card/Stack/Text; use Card only to group several related composites.",
+    "Keep pieces information-dense: no empty cards, no decorative headings that repeat the prose.",
+    "Never nest a Card inside a Card.",
+    "Put chart rows in /state and bind the data prop with { $state: '/path' }; emit /state patches before the elements that use them.",
+    "Text content may contain inline markdown (bold, links, code) but no headings or lists — use Steps or KeyFacts for those.",
+    "To ask the user something, use Choices for enumerable answers, or inputs bound with $bindState plus a Button whose on.press is { action: 'reply', params: { text: '... ${/path} ...' } }.",
+  ],
+})}`;
+
 export function buildSystemPrompt() {
-  return [identity, formSelection, workspace].join("\n\n");
+  return [identity, formSelection, inlineUi, workspace].join("\n\n");
 }
 
 export const titlePrompt = `You write titles for chat conversations. You will be shown the user's first message. Do NOT answer it. Reply with ONLY a 2-5 word title that summarizes the topic: no prefixes, no quotes, no punctuation at the end, no formatting.`;

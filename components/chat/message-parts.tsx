@@ -1,5 +1,7 @@
 "use client";
 
+import { SPEC_DATA_PART_TYPE } from "@json-render/core";
+import { useJsonRenderMessage } from "@json-render/react";
 import type { UIMessage } from "ai";
 import {
   isDynamicToolUIPart,
@@ -25,6 +27,7 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { ArtifactCard } from "./artifact-card";
+import { UIRender } from "./ui-render";
 
 const ARTIFACT_TOOLS = new Set([
   "tool-createArtifact",
@@ -42,12 +45,33 @@ type MessagePartsProps = {
 // Renders one message's parts in order. Each presentation channel adds its
 // own part renderer here as it is introduced.
 export function MessageParts({ message, isStreaming }: MessagePartsProps) {
+  // One inline UI spec per message, assembled from its data-spec parts and
+  // rendered where the first of them sits.
+  const { spec, hasSpec } = useJsonRenderMessage(message.parts);
+  const firstSpecIndex = message.parts.findIndex(
+    (p) => p.type === SPEC_DATA_PART_TYPE,
+  );
+
   return (
     <Message from={message.role}>
       <MessageContent>
         {message.parts.map((part, index) => {
           const key = `${message.id}-${index}`;
           const isLast = index === message.parts.length - 1;
+
+          if (part.type === SPEC_DATA_PART_TYPE) {
+            if (index !== firstSpecIndex || !hasSpec) {
+              return null;
+            }
+            return (
+              <UIRender
+                key={key}
+                loading={isStreaming}
+                messageId={message.id}
+                spec={spec}
+              />
+            );
+          }
 
           if (isTextUIPart(part)) {
             return (

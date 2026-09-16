@@ -27,6 +27,7 @@ import { MODEL_COOKIE } from "@/lib/ai/models";
 import type { ArtifactSnapshot } from "@/lib/artifacts/kinds";
 import { cn } from "@/lib/utils";
 import { useArtifacts } from "@/stores/artifacts";
+import { ChatProvider } from "./chat-context";
 import { MessageParts } from "./message-parts";
 import { ModelPicker } from "./model-picker";
 
@@ -45,7 +46,10 @@ export function Chat({
 }: ChatProps) {
   const stageOpen = useArtifacts((s) => s.open);
   const hasArtifacts = useArtifacts(
-    (s) => s.order.length > 0 || Object.keys(s.drafts).length > 0,
+    (s) =>
+      s.order.length > 0 ||
+      Object.keys(s.drafts).length > 0 ||
+      s.expanded !== null,
   );
   const setStageOpen = useArtifacts((s) => s.setOpen);
   const resetArtifacts = useArtifacts((s) => s.reset);
@@ -87,6 +91,17 @@ export function Chat({
 
   const isBusy = status === "submitted" || status === "streaming";
 
+  const sendText = useCallback(
+    (text: string) => {
+      if (messages.length === 0 && window.location.pathname === "/") {
+        window.history.replaceState({}, "", `/chat/${id}`);
+      }
+      sendMessage({ text });
+    },
+    [id, messages.length, sendMessage],
+  );
+  const chatActions = useMemo(() => ({ sendText }), [sendText]);
+
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       if (!message.text?.trim()) {
@@ -107,73 +122,75 @@ export function Chat({
   );
 
   return (
-    <div className="flex h-dvh min-h-0 flex-row">
-      <ArtifactSync messages={messages} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {hasArtifacts && !stageOpen && (
-          <Button
-            aria-label="Open stage"
-            className="absolute top-3 right-3 z-10"
-            onClick={() => setStageOpen(true)}
-            size="icon-sm"
-            variant="outline"
-          >
-            <PanelRightOpenIcon className="size-4" />
-          </Button>
-        )}
-        {messages.length === 0 ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <ConversationEmptyState
-              description="Ask anything. The answer takes whatever shape fits it best."
-              title="rendr"
-            />
-          </div>
-        ) : (
-          <Conversation className="min-h-0 flex-1">
-            <ConversationContent className="mx-auto w-full max-w-3xl">
-              {messages.map((message, index) => (
-                <MessageParts
-                  isStreaming={
-                    status === "streaming" && index === messages.length - 1
-                  }
-                  key={message.id}
-                  message={message}
-                />
-              ))}
-            </ConversationContent>
-            <ConversationScrollButton />
-          </Conversation>
-        )}
+    <ChatProvider value={chatActions}>
+      <div className="flex h-dvh min-h-0 flex-row">
+        <ArtifactSync messages={messages} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {hasArtifacts && !stageOpen && (
+            <Button
+              aria-label="Open stage"
+              className="absolute top-3 right-3 z-10"
+              onClick={() => setStageOpen(true)}
+              size="icon-sm"
+              variant="outline"
+            >
+              <PanelRightOpenIcon className="size-4" />
+            </Button>
+          )}
+          {messages.length === 0 ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center">
+              <ConversationEmptyState
+                description="Ask anything. The answer takes whatever shape fits it best."
+                title="rendr"
+              />
+            </div>
+          ) : (
+            <Conversation className="min-h-0 flex-1">
+              <ConversationContent className="mx-auto w-full max-w-3xl">
+                {messages.map((message, index) => (
+                  <MessageParts
+                    isStreaming={
+                      status === "streaming" && index === messages.length - 1
+                    }
+                    key={message.id}
+                    message={message}
+                  />
+                ))}
+              </ConversationContent>
+              <ConversationScrollButton />
+            </Conversation>
+          )}
 
-        <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-          <PromptInput onSubmit={handleSubmit}>
-            <PromptInputBody>
-              <PromptInputTextarea
-                onChange={(event) => setText(event.target.value)}
-                placeholder="Ask anything…"
-                value={text}
-              />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools>
-                <ModelPicker onChange={setModelId} value={modelId} />
-              </PromptInputTools>
-              <PromptInputSubmit
-                disabled={!(text.trim() || isBusy)}
-                status={status}
-              />
-            </PromptInputFooter>
-          </PromptInput>
+          <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+            <PromptInput onSubmit={handleSubmit}>
+              <PromptInputBody>
+                <PromptInputTextarea
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder="Ask anything…"
+                  value={text}
+                />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <ModelPicker onChange={setModelId} value={modelId} />
+                </PromptInputTools>
+                <PromptInputSubmit
+                  disabled={!(text.trim() || isBusy)}
+                  status={status}
+                />
+              </PromptInputFooter>
+            </PromptInput>
+          </div>
+        </div>
+        <div
+          className={cn(
+            "h-full shrink-0 transition-[width] duration-300 ease-out",
+            stageOpen && hasArtifacts ? "w-[58%]" : "w-0",
+          )}
+        >
+          {stageOpen && hasArtifacts && <Stage />}
         </div>
       </div>
-      <div
-        className={cn(
-          "h-full shrink-0 transition-[width] duration-300 ease-out",
-          stageOpen && hasArtifacts ? "w-[58%]" : "w-0",
-        )}
-      >
-        {stageOpen && hasArtifacts && <Stage />}
-      </div>
-    </div>
+    </ChatProvider>
   );
 }

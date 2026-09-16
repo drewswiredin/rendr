@@ -1,5 +1,8 @@
+import { pipeJsonRender } from "@json-render/core";
 import {
-  createAgentUIStreamResponse,
+  createAgentUIStream,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   generateText,
   type UIMessage,
   validateUIMessages,
@@ -107,14 +110,27 @@ export async function POST(request: Request) {
     guestId,
   });
 
-  return createAgentUIStreamResponse({
-    agent,
-    uiMessages: messages,
+  // The agent's stream passes through json-render's transform, which lifts
+  // inline ```spec JSONL out of the text into data-spec parts; persistence
+  // then stores the transformed parts so a reload re-renders the UI.
+  const stream = createUIMessageStream<RendrUIMessage>({
     originalMessages: messages,
-    generateMessageId: () => crypto.randomUUID(),
+    generateId: () => crypto.randomUUID(),
     onError: describeError,
     onEnd: async ({ responseMessage }) => {
       await saveMessages({ chatId: id, messages: [responseMessage] });
     },
+    execute: async ({ writer }) => {
+      const agentStream = await createAgentUIStream({
+        agent,
+        uiMessages: messages,
+        // The provider error is turned into an error chunk here, before the
+        // outer stream sees it, so the mapping has to be applied here too.
+        onError: describeError,
+      });
+      writer.merge(pipeJsonRender(agentStream));
+    },
   });
+
+  return createUIMessageStreamResponse({ stream });
 }

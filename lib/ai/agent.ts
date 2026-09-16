@@ -25,6 +25,9 @@ export function createAgent({
       ...artifactTools({ chatId, guestId }),
     },
     stopWhen: stepCountIs(12),
+    // Plenty for a long artifact; keeps providers from reserving the model's
+    // full output window per request.
+    maxOutputTokens: 16_000,
   });
 }
 

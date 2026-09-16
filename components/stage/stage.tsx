@@ -8,9 +8,11 @@ import {
   CopyIcon,
   EyeIcon,
   PanelRightCloseIcon,
+  XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { UIRender } from "@/components/chat/ui-render";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -23,15 +25,27 @@ import type {
 } from "@/lib/artifacts/kinds";
 import { kindLabels } from "@/lib/artifacts/kinds";
 import { cn } from "@/lib/utils";
-import { type ArtifactDraft, useArtifacts } from "@/stores/artifacts";
+import {
+  type ArtifactDraft,
+  EXPANDED_ID,
+  useArtifacts,
+} from "@/stores/artifacts";
 import { ArtifactView } from "./artifact-view";
 
 // The stage: a pane of tabs, one per artifact, with preview/source views and
 // version history. Drafts (artifacts still streaming in) appear as tabs too.
 
 export function Stage() {
-  const { artifacts, order, drafts, activeId, setActive, setOpen } =
-    useArtifacts();
+  const {
+    artifacts,
+    order,
+    drafts,
+    activeId,
+    expanded,
+    setActive,
+    setOpen,
+    closeExpanded,
+  } = useArtifacts();
 
   const draftList = useMemo(() => Object.values(drafts), [drafts]);
   const activeDraft =
@@ -44,6 +58,15 @@ export function Stage() {
     <aside className="flex h-full min-w-0 flex-col border-l bg-background">
       <header className="flex h-12 shrink-0 items-center gap-1 border-b px-2">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {expanded && (
+            <TabButton
+              active={activeId === EXPANDED_ID}
+              closable
+              label={expanded.title}
+              onClick={() => setActive(EXPANDED_ID)}
+              onClose={closeExpanded}
+            />
+          )}
           {draftList
             .filter((d) => !d.targetId)
             .map((draft) => (
@@ -84,7 +107,15 @@ export function Stage() {
       </header>
 
       <div className="min-h-0 flex-1">
-        {activeDraft ? (
+        {activeId === EXPANDED_ID && expanded ? (
+          <div className="h-full overflow-auto px-6 py-5">
+            <UIRender
+              className="mx-auto max-w-3xl"
+              messageId={expanded.id}
+              spec={expanded.spec}
+            />
+          </div>
+        ) : activeDraft ? (
           <DraftPanel draft={activeDraft} />
         ) : activeArtifact ? (
           <ArtifactPanel artifact={activeArtifact} key={activeArtifact.id} />
@@ -102,29 +133,47 @@ function TabButton({
   label,
   active,
   streaming,
+  closable,
   onClick,
+  onClose,
 }: {
   label: string;
   active: boolean;
   streaming?: boolean;
+  closable?: boolean;
   onClick: () => void;
+  onClose?: () => void;
 }) {
   return (
-    <button
+    <div
       className={cn(
-        "flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm transition-colors",
+        "flex h-8 shrink-0 items-center rounded-md text-sm transition-colors",
         active
           ? "bg-secondary text-foreground"
           : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
       )}
-      onClick={onClick}
-      type="button"
     >
-      {streaming && (
-        <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+      <button
+        className="flex h-full items-center gap-1.5 pl-3 pr-3"
+        onClick={onClick}
+        type="button"
+      >
+        {streaming && (
+          <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+        )}
+        <span className="max-w-48 truncate">{label}</span>
+      </button>
+      {closable && (
+        <button
+          aria-label={`Close ${label}`}
+          className="-ml-2 mr-1 rounded p-0.5 hover:bg-background/60"
+          onClick={onClose}
+          type="button"
+        >
+          <XIcon className="size-3.5" />
+        </button>
       )}
-      <span className="max-w-48 truncate">{label}</span>
-    </button>
+    </div>
   );
 }
 

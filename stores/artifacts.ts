@@ -1,5 +1,6 @@
 "use client";
 
+import type { Spec } from "@json-render/core";
 import { create } from "zustand";
 import type { ArtifactKind, ArtifactSnapshot } from "@/lib/artifacts/kinds";
 
@@ -13,8 +14,15 @@ export type ArtifactDraft = {
   content: string;
 };
 
+// An inline UI piece the user chose to view large. Transient: not persisted,
+// replaced by the next Expand, closed with its tab.
+export type ExpandedPiece = { id: string; title: string; spec: Spec };
+
+export const EXPANDED_ID = "__expanded__";
+
 type ArtifactsState = {
   chatId: string | null;
+  expanded: ExpandedPiece | null;
   artifacts: Record<string, ArtifactSnapshot>;
   order: string[]; // most recently updated first
   drafts: Record<string, ArtifactDraft>; // by toolCallId
@@ -31,6 +39,8 @@ type ArtifactsState = {
   clearDraft: (toolCallId: string) => void;
   setActive: (id: string | null) => void;
   setOpen: (open: boolean) => void;
+  expand: (piece: ExpandedPiece) => void;
+  closeExpanded: () => void;
 };
 
 function sortOrder(artifacts: Record<string, ArtifactSnapshot>) {
@@ -41,6 +51,7 @@ function sortOrder(artifacts: Record<string, ArtifactSnapshot>) {
 
 export const useArtifacts = create<ArtifactsState>((set) => ({
   chatId: null,
+  expanded: null,
   artifacts: {},
   order: [],
   drafts: {},
@@ -56,6 +67,7 @@ export const useArtifacts = create<ArtifactsState>((set) => ({
       artifacts,
       order,
       drafts: {},
+      expanded: null,
       activeId: order[0] ?? null,
       // A chat that already has artifacts opens with the pane showing.
       open: order.length > 0,
@@ -95,4 +107,25 @@ export const useArtifacts = create<ArtifactsState>((set) => ({
   setActive: (id) =>
     set((state) => ({ activeId: id, open: id ? true : state.open })),
   setOpen: (open) => set({ open }),
+
+  expand: (piece) =>
+    set({
+      expanded: piece,
+      activeId: EXPANDED_ID,
+      open: true,
+      hasAutoOpened: true,
+    }),
+
+  closeExpanded: () =>
+    set((state) => ({
+      expanded: null,
+      activeId:
+        state.activeId === EXPANDED_ID
+          ? (state.order[0] ?? null)
+          : state.activeId,
+      open:
+        state.order.length > 0 || Object.keys(state.drafts).length > 0
+          ? state.open
+          : false,
+    })),
 }));

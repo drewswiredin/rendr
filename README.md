@@ -12,7 +12,7 @@ wall of text.
 | Channel | Nature | Mechanism |
 | --- | --- | --- |
 | Prose | always on | Streamdown (markdown, mermaid, math, code) |
-| Structured inline UI | ephemeral, constrained | json-render over a shadcn catalog *(step 3)* |
+| Structured inline UI | ephemeral, constrained | json-render: shadcn primitives + chat pieces + response-shape composites (`lib/ui/catalog.ts`); Expand / Pin on every piece; a `reply` action so forms and Choices answer back |
 | Freeform pieces | agent-authored HTML, animations, interactives | sandboxed MCP Apps host with a pinned CDN library manifest *(step 4)* |
 | Artifacts | persistent, versioned, iterated | the stage: a pane of tabs; `html` / `mermaid` / `markdown` kinds, agent tools + user edits, version history |
 
@@ -42,6 +42,7 @@ lib/ai/agent.ts            ToolLoopAgent factory (tools are added per channel)
 lib/ai/prompts.ts          identity + form-selection rubric, assembled per channel
 lib/ai/models.ts           model list (OpenRouter ids)
 lib/ai/tools/artifacts.ts  createArtifact / editArtifact / rewriteArtifact / readArtifact / listArtifacts
+lib/ui/catalog.ts          inline-UI vocabulary (Zod); lib/ui/registry.tsx renders it
 lib/artifacts/             kinds + server store (versions)
 lib/db/                    drizzle schema, queries, migrations
 stores/artifacts.ts        client store for the stage (artifacts, drafts, active tab)
