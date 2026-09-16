@@ -5,10 +5,12 @@ import { useJsonRenderMessage } from "@json-render/react";
 import type { UIMessage } from "ai";
 import {
   isDynamicToolUIPart,
+  isFileUIPart,
   isReasoningUIPart,
   isStaticToolUIPart,
   isTextUIPart,
 } from "ai";
+import { FileIcon } from "lucide-react";
 import {
   Message,
   MessageContent,
@@ -70,6 +72,31 @@ export function MessageParts({ message, isStreaming }: MessagePartsProps) {
                 messageId={message.id}
                 spec={spec}
               />
+            );
+          }
+
+          if (isFileUIPart(part)) {
+            return part.mediaType.startsWith("image/") ? (
+              // biome-ignore lint/performance/noImgElement: user upload, unknown dimensions
+              <img
+                alt={part.filename ?? "attachment"}
+                className="max-h-80 max-w-full rounded-lg border object-contain"
+                key={key}
+                src={part.url}
+              />
+            ) : (
+              <a
+                className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm hover:bg-accent"
+                href={part.url}
+                key={key}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <FileIcon className="size-4 text-muted-foreground" />
+                <span className="max-w-64 truncate">
+                  {part.filename ?? "attachment"}
+                </span>
+              </a>
             );
           }
 

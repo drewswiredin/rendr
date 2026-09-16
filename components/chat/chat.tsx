@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import { PanelRightOpenIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,8 +14,13 @@ import {
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
   PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -28,8 +33,10 @@ import type { ArtifactSnapshot } from "@/lib/artifacts/kinds";
 import { cn } from "@/lib/utils";
 import { useArtifacts } from "@/stores/artifacts";
 import { ChatProvider } from "./chat-context";
+import { ComposerAttachments } from "./composer-attachments";
 import { MessageParts } from "./message-parts";
 import { ModelPicker } from "./model-picker";
+import { uploadAttachments } from "./upload";
 
 type ChatProps = {
   id: string;
@@ -116,19 +123,32 @@ export function Chat({
   const chatActions = useMemo(() => ({ sendText }), [sendText]);
 
   const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      if (!message.text?.trim()) {
+    async (message: PromptInputMessage) => {
+      const text = message.text?.trim() ?? "";
+      const hasFiles = (message.files?.length ?? 0) > 0;
+      if (!(text || hasFiles)) {
         return;
       }
       if (isBusy) {
         stop();
         return;
       }
+      // Attachments arrive as data URLs; store them and send short URLs so
+      // the persisted message stays small.
+      let files: FileUIPart[] = [];
+      if (hasFiles) {
+        try {
+          files = await uploadAttachments(message.files ?? []);
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Upload failed");
+          throw error; // keeps the composer's attachments so the user can retry
+        }
+      }
       // First message of a new chat: move to its URL without a reload.
       if (messages.length === 0 && window.location.pathname === "/") {
         window.history.replaceState({}, "", `/chat/${id}`);
       }
-      sendMessage({ text: message.text });
+      sendMessage({ text: text || "(see attachment)", files });
       setText("");
     },
     [id, isBusy, messages.length, sendMessage, stop],
@@ -175,7 +195,25 @@ export function Chat({
           )}
 
           <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-            <PromptInput onSubmit={handleSubmit}>
+            <PromptInput
+              accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json"
+              globalDrop
+              maxFileSize={20 * 1024 * 1024}
+              multiple
+              onError={(error) =>
+                toast.error(
+                  error.code === "max_file_size"
+                    ? "Files must be under 20 MB"
+                    : error.code === "accept"
+                      ? "That file type isn't supported"
+                      : error.message,
+                )
+              }
+              onSubmit={handleSubmit}
+            >
+              <PromptInputHeader>
+                <ComposerAttachments />
+              </PromptInputHeader>
               <PromptInputBody>
                 <PromptInputTextarea
                   onChange={(event) => setText(event.target.value)}
@@ -185,6 +223,12 @@ export function Chat({
               </PromptInputBody>
               <PromptInputFooter>
                 <PromptInputTools>
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger />
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionAddAttachments />
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
                   <ModelPicker onChange={setModelId} value={modelId} />
                 </PromptInputTools>
                 <PromptInputSubmit

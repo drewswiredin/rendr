@@ -20,6 +20,7 @@ import {
   updateChatTitle,
 } from "@/lib/db/queries";
 import { getGuestId } from "@/lib/guest";
+import { readUpload, uploadIdFromUrl } from "@/lib/uploads/store";
 
 export const maxDuration = 120;
 
@@ -81,6 +82,42 @@ function describeError(error: unknown): string {
   return "Something went wrong while generating the reply.";
 }
 
+// Stored attachments are referenced by short URLs in the persisted messages;
+// the model needs the bytes, so inline them as data URLs for the call only.
+async function inlineAttachments(
+  messages: RendrUIMessage[],
+  guestId: string,
+): Promise<RendrUIMessage[]> {
+  return Promise.all(
+    messages.map(async (message) => ({
+      ...message,
+      parts: await Promise.all(
+        message.parts.map(async (part) => {
+          if (part.type !== "file") {
+            return part;
+          }
+          const id = uploadIdFromUrl(part.url);
+          if (!id) {
+            return part;
+          }
+          const found = await readUpload({ id, guestId });
+          if (!found) {
+            return {
+              type: "text" as const,
+              text: `[attachment unavailable: ${part.filename ?? id}]`,
+            };
+          }
+          const base64 = Buffer.from(found.bytes).toString("base64");
+          return {
+            ...part,
+            url: `data:${found.row.mediaType};base64,${base64}`,
+          };
+        }),
+      ),
+    })),
+  );
+}
+
 export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -137,7 +174,7 @@ export async function POST(request: Request) {
     execute: async ({ writer }) => {
       const agentStream = await createAgentUIStream({
         agent,
-        uiMessages: messages,
+        uiMessages: await inlineAttachments(messages, guestId),
         // The provider error is turned into an error chunk here, before the
         // outer stream sees it, so the mapping has to be applied here too.
         onError: describeError,
