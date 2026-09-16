@@ -403,8 +403,12 @@ export const { registry } = defineRegistry(uiCatalog, {
       </Tabs>
     ),
 
+    // Children of a tab are laid out as a vertical stack: models put headings,
+    // cards and callouts straight into a tab without a wrapping Stack.
     TabContent: ({ props, children }) => (
-      <TabsContent value={props.value}>{children}</TabsContent>
+      <TabsContent className="flex flex-col gap-3" value={props.value}>
+        {children}
+      </TabsContent>
     ),
 
     RadioGroup: ({ props, bindings }) => {

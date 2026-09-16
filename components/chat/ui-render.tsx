@@ -70,7 +70,12 @@ export function UIRender({
   }
 
   return (
-    <div className={cn("group/ui relative my-2 w-full", className)}>
+    <div
+      className={cn(
+        "group/ui relative my-2 w-full [&>div>*+*]:mt-3",
+        className,
+      )}
+    >
       <StateProvider initialState={shownSpec.state ?? {}}>
         <VisibilityProvider>
           <ActionProvider handlers={handlers}>
