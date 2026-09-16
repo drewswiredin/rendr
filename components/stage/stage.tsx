@@ -306,6 +306,7 @@ function ArtifactPanel({ artifact }: { artifact: ArtifactSnapshot }) {
           />
         ) : (
           <ArtifactView
+            artifactId={artifact.id}
             content={shownContent}
             kind={artifact.kind}
             title={artifact.title}

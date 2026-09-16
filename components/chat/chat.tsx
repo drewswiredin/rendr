@@ -73,9 +73,19 @@ export function Chat({
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        prepareSendMessagesRequest: ({ id: chatId, messages }) => ({
-          body: { id: chatId, messages, modelId: modelIdRef.current },
-        }),
+        prepareSendMessagesRequest: ({ id: chatId, messages }) => {
+          const { pieceContext, artifacts } = useArtifacts.getState();
+          const pieces = Object.entries(pieceContext).map(
+            ([artifactId, text]) => ({
+              artifactId,
+              title: artifacts[artifactId]?.title ?? "piece",
+              text,
+            }),
+          );
+          return {
+            body: { id: chatId, messages, modelId: modelIdRef.current, pieces },
+          };
+        },
       }),
     [],
   );
@@ -91,14 +101,17 @@ export function Chat({
 
   const isBusy = status === "submitted" || status === "streaming";
 
+  // Stable across renders so pieces and inline UI holding it don't re-mount.
+  const messageCountRef = useRef(messages.length);
+  messageCountRef.current = messages.length;
   const sendText = useCallback(
     (text: string) => {
-      if (messages.length === 0 && window.location.pathname === "/") {
+      if (messageCountRef.current === 0 && window.location.pathname === "/") {
         window.history.replaceState({}, "", `/chat/${id}`);
       }
       sendMessage({ text });
     },
-    [id, messages.length, sendMessage],
+    [id, sendMessage],
   );
   const chatActions = useMemo(() => ({ sendText }), [sendText]);
 

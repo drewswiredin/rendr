@@ -15,7 +15,8 @@
       "!build",
       "!components/ui",
       "!components/ai-elements",
-      "!lib/db/migrations"
+      "!lib/db/migrations",
+      "!public"
     ]
   },
   "formatter": {

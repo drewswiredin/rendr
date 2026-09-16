@@ -6,10 +6,12 @@ import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
 import { Streamdown } from "streamdown";
 import type { ArtifactKind } from "@/lib/artifacts/kinds";
+import { PieceFrame } from "./piece-frame";
 
 const plugins = { cjk, code, math, mermaid };
 
 type ArtifactViewProps = {
+  artifactId?: string;
   kind: ArtifactKind;
   content: string;
   title: string;
@@ -18,6 +20,7 @@ type ArtifactViewProps = {
 
 // Preview rendering per kind. Editing happens in the source view, not here.
 export function ArtifactView({
+  artifactId,
   kind,
   content,
   title,
@@ -38,10 +41,9 @@ export function ArtifactView({
       return <SourcePre content={content} />;
     }
     return (
-      <iframe
-        className="h-full w-full bg-white"
-        sandbox="allow-scripts"
-        srcDoc={content}
+      <PieceFrame
+        artifactId={artifactId ?? "preview"}
+        html={content}
         title={title}
       />
     );

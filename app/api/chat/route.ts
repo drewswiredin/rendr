@@ -27,6 +27,12 @@ const bodySchema = z.object({
   id: z.string().min(1),
   messages: z.array(z.unknown()).min(1),
   modelId: z.string().optional(),
+  // State reported by interactive pieces on the stage (rendr.setContext()).
+  pieces: z
+    .array(
+      z.object({ artifactId: z.string(), title: z.string(), text: z.string() }),
+    )
+    .optional(),
 });
 
 function textOf(message: UIMessage): string {
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
   }
 
   const guestId = await getGuestId();
-  const { id, modelId } = parsed.data;
+  const { id, modelId, pieces } = parsed.data;
   const messages = (await validateUIMessages({
     messages: parsed.data.messages,
   })) as RendrUIMessage[];
@@ -108,6 +114,14 @@ export async function POST(request: Request) {
     modelId: resolveModelId(modelId),
     chatId: id,
     guestId,
+    pieceContext: pieces?.length
+      ? pieces
+          .map(
+            (p) =>
+              `- "${p.title}" (id ${p.artifactId}): ${p.text.slice(0, 4000)}`,
+          )
+          .join("\n")
+      : undefined,
   });
 
   // The agent's stream passes through json-render's transform, which lifts

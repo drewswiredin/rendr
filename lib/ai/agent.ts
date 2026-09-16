@@ -12,15 +12,20 @@ export function createAgent({
   modelId,
   chatId,
   guestId,
+  pieceContext,
 }: {
   modelId: string;
   chatId: string;
   guestId: string;
+  pieceContext?: string;
 }) {
+  const instructions = pieceContext
+    ? `${buildSystemPrompt()}\n\n**Current state of interactive pieces on the stage** (reported by the pieces themselves; use it when the user refers to what they did):\n${pieceContext}`
+    : buildSystemPrompt();
   return new ToolLoopAgent({
     id: "rendr",
     model: getLanguageModel(modelId),
-    instructions: buildSystemPrompt(),
+    instructions,
     tools: {
       ...artifactTools({ chatId, guestId }),
     },

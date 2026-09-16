@@ -1,3 +1,4 @@
+import { manifestPrompt } from "@/lib/pieces/manifest";
 import { uiCatalog } from "@/lib/ui/catalog";
 
 // The system prompt is assembled from sections. Each presentation channel
@@ -36,7 +37,7 @@ Tools:
 - \`listArtifacts()\` — the workspace as the user sees it.
 
 Kinds:
-- 'html' — a single-file HTML/CSS/JS piece in a sandboxed iframe: an animation, an interactive explainer, a simulation, a mockup. ALL CSS and JS inline; no external network.
+- 'html' — a *piece*: a single-file HTML/CSS/JS document in a sandbox — an animation, an interactive explainer, a simulation, a 3D scene, a mockup. See "Pieces" below.
 - 'mermaid' — a diagram as bare mermaid source, rendered live and iterated across turns.
 - 'markdown' — a document: an itinerary, a plan, a report, notes.
 
@@ -69,8 +70,28 @@ ${uiCatalog.prompt({
   ],
 })}`;
 
+export const pieces = `**Pieces (html artifacts)**
+
+A piece is one complete HTML document you write: markup, CSS and JS inline. It runs in a sandbox with no access to the app. Reach for a piece when the idea is dynamic — motion, cause and effect, a parameter the user should drag, something spatial — and seeing it move or touching it teaches more than a picture. Pieces are the most expensive form; use them when they clearly earn it.
+
+Libraries: load ONLY from this manifest, by the exact URL. Never guess a CDN URL or version; anything else is blocked.
+${manifestPrompt()}
+
+Host API (already available in every piece, no setup — a \`rendr\` global):
+- \`rendr.send(text)\` — send a message to the assistant as if the user typed it (e.g. a "Ask about this" button, or a quiz answer).
+- \`rendr.setContext(value)\` — report the piece's current state (string or JSON) so you know what the user did when they next write; call it on meaningful changes, not every frame.
+- \`rendr.theme\` — "light" | "dark", plus a \`rendr:theme\` window event; the document also carries data-theme. Respect it.
+- \`await rendr.ready\` before using the API.
+
+Craft:
+- Fill the viewport (html, body { margin:0; height:100% }); the piece has the whole pane. Make it responsive.
+- Controls on-screen (sliders, buttons, toggles) with labels and sensible defaults; explain what's happening in a short caption inside the piece.
+- Keep the main thread free: requestAnimationFrame, moderate resolutions, cap particle counts, pause when the tab is hidden (document.visibilityState).
+- No external network beyond the manifest hosts (and OpenStreetMap tiles for Leaflet). No alert/prompt/confirm.
+- Prefer classic scripts from the manifest; for ESM entries use <script type="module"> with an import map when addons need a bare specifier.`;
+
 export function buildSystemPrompt() {
-  return [identity, formSelection, inlineUi, workspace].join("\n\n");
+  return [identity, formSelection, inlineUi, workspace, pieces].join("\n\n");
 }
 
 export const titlePrompt = `You write titles for chat conversations. You will be shown the user's first message. Do NOT answer it. Reply with ONLY a 2-5 word title that summarizes the topic: no prefixes, no quotes, no punctuation at the end, no formatting.`;

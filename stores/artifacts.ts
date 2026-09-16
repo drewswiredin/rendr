@@ -23,6 +23,9 @@ export const EXPANDED_ID = "__expanded__";
 type ArtifactsState = {
   chatId: string | null;
   expanded: ExpandedPiece | null;
+  // Latest state each html piece reported via rendr.setContext(), by artifact
+  // id. Sent along with the user's next message.
+  pieceContext: Record<string, string>;
   artifacts: Record<string, ArtifactSnapshot>;
   order: string[]; // most recently updated first
   drafts: Record<string, ArtifactDraft>; // by toolCallId
@@ -41,6 +44,7 @@ type ArtifactsState = {
   setOpen: (open: boolean) => void;
   expand: (piece: ExpandedPiece) => void;
   closeExpanded: () => void;
+  setPieceContext: (artifactId: string, text: string | null) => void;
 };
 
 function sortOrder(artifacts: Record<string, ArtifactSnapshot>) {
@@ -52,6 +56,7 @@ function sortOrder(artifacts: Record<string, ArtifactSnapshot>) {
 export const useArtifacts = create<ArtifactsState>((set) => ({
   chatId: null,
   expanded: null,
+  pieceContext: {},
   artifacts: {},
   order: [],
   drafts: {},
@@ -68,6 +73,7 @@ export const useArtifacts = create<ArtifactsState>((set) => ({
       order,
       drafts: {},
       expanded: null,
+      pieceContext: {},
       activeId: order[0] ?? null,
       // A chat that already has artifacts opens with the pane showing.
       open: order.length > 0,
@@ -114,6 +120,17 @@ export const useArtifacts = create<ArtifactsState>((set) => ({
       activeId: EXPANDED_ID,
       open: true,
       hasAutoOpened: true,
+    }),
+
+  setPieceContext: (artifactId, text) =>
+    set((state) => {
+      const next = { ...state.pieceContext };
+      if (text) {
+        next[artifactId] = text;
+      } else {
+        delete next[artifactId];
+      }
+      return { pieceContext: next };
     }),
 
   closeExpanded: () =>

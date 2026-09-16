@@ -13,7 +13,7 @@ wall of text.
 | --- | --- | --- |
 | Prose | always on | Streamdown (markdown, mermaid, math, code) |
 | Structured inline UI | ephemeral, constrained | json-render: shadcn primitives + chat pieces + response-shape composites (`lib/ui/catalog.ts`); Expand / Pin on every piece; a `reply` action so forms and Choices answer back |
-| Freeform pieces | agent-authored HTML, animations, interactives | sandboxed MCP Apps host with a pinned CDN library manifest *(step 4)* |
+| Freeform pieces | agent-authored HTML: animations, interactives, 3D, simulations | an **MCP Apps host**: the piece runs on a second origin behind a CSP; a pinned, load-tested CDN manifest (`lib/pieces/manifest.ts`) is the only source of libraries; `rendr.send()` / `rendr.setContext()` let the piece talk back |
 | Artifacts | persistent, versioned, iterated | the stage: a pane of tabs; `html` / `mermaid` / `markdown` kinds, agent tools + user edits, version history |
 
 ## Stack
@@ -22,6 +22,11 @@ Next.js 16 · React 19 · Tailwind 4 · shadcn (Radix) · AI Elements · AI SDK 
 (`ToolLoopAgent`) · OpenRouter · Streamdown · drizzle + libsql (SQLite) · Biome.
 
 No accounts: a guest cookie scopes chats per browser.
+
+Pieces need a second origin for their sandbox. In development the app is
+reached at `localhost:3000` and the sandbox at `127.0.0.1:3000` automatically;
+in production set `NEXT_PUBLIC_SANDBOX_ORIGIN` (and `RENDR_HOST_ORIGINS` for the
+`frame-ancestors` CSP).
 
 ## Running
 
@@ -43,6 +48,11 @@ lib/ai/prompts.ts          identity + form-selection rubric, assembled per chann
 lib/ai/models.ts           model list (OpenRouter ids)
 lib/ai/tools/artifacts.ts  createArtifact / editArtifact / rewriteArtifact / readArtifact / listArtifacts
 lib/ui/catalog.ts          inline-UI vocabulary (Zod); lib/ui/registry.tsx renders it
+lib/pieces/manifest.ts     pinned CDN library menu for pieces (also feeds the sandbox CSP)
+lib/pieces/host.ts         MCP Apps host (AppBridge over the sandbox proxy)
+public/sandbox.{html,js}   the sandbox proxy page (second origin)
+public/piece-runtime.js    injected into every piece: bridge + `rendr` API
+public/mcp-app.js          bundled @modelcontextprotocol/ext-apps app SDK (pnpm sync:mcp-app)
 lib/artifacts/             kinds + server store (versions)
 lib/db/                    drizzle schema, queries, migrations
 stores/artifacts.ts        client store for the stage (artifacts, drafts, active tab)
