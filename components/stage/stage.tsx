@@ -120,8 +120,14 @@ export function Stage() {
         ) : activeArtifact ? (
           <ArtifactPanel artifact={activeArtifact} key={activeArtifact.id} />
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
-            No artifact selected.
+          <div className="flex h-full flex-col items-center justify-center gap-1 px-8 text-center text-muted-foreground text-sm">
+            <span className="font-medium text-foreground">
+              Nothing on the stage yet
+            </span>
+            <span>
+              Things worth keeping — an interactive, a diagram, a document —
+              land here and stay while you work.
+            </span>
           </div>
         )}
       </div>

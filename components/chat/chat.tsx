@@ -2,7 +2,6 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
-import { PanelRightOpenIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -27,6 +26,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { ArtifactSync } from "@/components/stage/artifact-sync";
 import { Stage } from "@/components/stage/stage";
+import { StageRail } from "@/components/stage/stage-rail";
 import { Button } from "@/components/ui/button";
 import {
   SidebarInset,
@@ -59,11 +59,11 @@ export function Chat({
   initialModelId,
 }: ChatProps) {
   const stageOpen = useArtifacts((s) => s.open);
-  const hasArtifacts = useArtifacts(
+  const artifactCount = useArtifacts(
     (s) =>
-      s.order.length > 0 ||
-      Object.keys(s.drafts).length > 0 ||
-      s.expanded !== null,
+      s.order.length +
+      Object.keys(s.drafts).length +
+      (s.expanded !== null ? 1 : 0),
   );
   const setStageOpen = useArtifacts((s) => s.setOpen);
   const resetArtifacts = useArtifacts((s) => s.reset);
@@ -174,17 +174,6 @@ export function Chat({
           <ArtifactSync busy={isBusy} messages={messages} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <SidebarTrigger className="absolute top-3 left-3 z-10" />
-            {hasArtifacts && !stageOpen && (
-              <Button
-                aria-label="Open stage"
-                className="absolute top-3 right-3 z-10"
-                onClick={() => setStageOpen(true)}
-                size="icon-sm"
-                variant="outline"
-              >
-                <PanelRightOpenIcon className="size-4" />
-              </Button>
-            )}
             {messages.length === 0 ? (
               <div className="flex min-h-0 flex-1 items-center justify-center">
                 <ConversationEmptyState
@@ -254,13 +243,21 @@ export function Chat({
               </PromptInput>
             </div>
           </div>
+          {/* The stage is always present: a rail when collapsed, a pane when open. */}
           <div
             className={cn(
               "h-full shrink-0 transition-[width] duration-300 ease-out",
-              stageOpen && hasArtifacts ? "w-[58%]" : "w-0",
+              stageOpen ? "w-[58%]" : "w-11",
             )}
           >
-            {stageOpen && hasArtifacts && <Stage />}
+            {stageOpen ? (
+              <Stage />
+            ) : (
+              <StageRail
+                count={artifactCount}
+                onOpen={() => setStageOpen(true)}
+              />
+            )}
           </div>
         </SidebarInset>
       </SidebarProvider>
