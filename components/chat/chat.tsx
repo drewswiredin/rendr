@@ -171,7 +171,7 @@ export function Chat({
       <SidebarProvider className="h-dvh min-h-0">
         <HistorySidebar currentChatId={id} />
         <SidebarInset className="flex h-dvh min-h-0 flex-row overflow-hidden">
-          <ArtifactSync messages={messages} />
+          <ArtifactSync busy={isBusy} messages={messages} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <SidebarTrigger className="absolute top-3 left-3 z-10" />
             {hasArtifacts && !stageOpen && (

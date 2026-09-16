@@ -26,6 +26,8 @@ type ArtifactsState = {
   // Latest state each html piece reported via rendr.setContext(), by artifact
   // id. Sent along with the user's next message.
   pieceContext: Record<string, string>;
+  // Whether a reply is streaming; used to tell "still writing" from "cut off".
+  busy: boolean;
   artifacts: Record<string, ArtifactSnapshot>;
   order: string[]; // most recently updated first
   drafts: Record<string, ArtifactDraft>; // by toolCallId
@@ -45,6 +47,7 @@ type ArtifactsState = {
   expand: (piece: ExpandedPiece) => void;
   closeExpanded: () => void;
   setPieceContext: (artifactId: string, text: string | null) => void;
+  setBusy: (busy: boolean) => void;
 };
 
 function sortOrder(artifacts: Record<string, ArtifactSnapshot>) {
@@ -57,6 +60,7 @@ export const useArtifacts = create<ArtifactsState>((set) => ({
   chatId: null,
   expanded: null,
   pieceContext: {},
+  busy: false,
   artifacts: {},
   order: [],
   drafts: {},
@@ -121,6 +125,8 @@ export const useArtifacts = create<ArtifactsState>((set) => ({
       open: true,
       hasAutoOpened: true,
     }),
+
+  setBusy: (busy) => set({ busy }),
 
   setPieceContext: (artifactId, text) =>
     set((state) => {

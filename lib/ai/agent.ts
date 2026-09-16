@@ -30,9 +30,13 @@ export function createAgent({
       ...artifactTools({ chatId, guestId }),
     },
     stopWhen: stepCountIs(12),
-    // Plenty for a long artifact; keeps providers from reserving the model's
-    // full output window per request.
-    maxOutputTokens: 16_000,
+    // Reasoning counts against the output budget on Anthropic models, so it
+    // gets its own cap: a long artifact must never be cut off because the
+    // model thought for a while first. 32k output leaves ~20k for content.
+    maxOutputTokens: 32_000,
+    providerOptions: {
+      openrouter: { reasoning: { max_tokens: 8_000 } },
+    },
   });
 }
 

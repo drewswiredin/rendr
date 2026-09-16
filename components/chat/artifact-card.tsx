@@ -39,7 +39,7 @@ type Output =
 // A compact card in the message stream for each artifact tool call. Clicking
 // it brings that artifact to the front of the stage.
 export function ArtifactCard({ part }: { part: ToolUIPart }) {
-  const { artifacts, setActive } = useArtifacts();
+  const { artifacts, setActive, busy } = useArtifacts();
   const toolName = part.type.slice("tool-".length);
 
   if (toolName === "listArtifacts") {
@@ -53,9 +53,15 @@ export function ArtifactCard({ part }: { part: ToolUIPart }) {
   }>;
   const output = part.output as Output | undefined;
   const done = part.state === "output-available" && output?.ok;
+  // Input still streaming after the reply ended means the model was cut off
+  // (output limit, abort, or provider error) before the call completed.
+  const cutOff =
+    !busy &&
+    (part.state === "input-streaming" || part.state === "input-available");
   const failed =
     part.state === "output-error" ||
-    (part.state === "output-available" && output && !output.ok);
+    (part.state === "output-available" && output && !output.ok) ||
+    cutOff;
 
   const snapshot = done
     ? output.artifact
@@ -67,9 +73,11 @@ export function ArtifactCard({ part }: { part: ToolUIPart }) {
   const Icon = kind ? kindIcons[kind] : FileTextIcon;
   const id = snapshot?.id ?? input.id;
 
-  const label = failed
-    ? `Couldn't ${toolName.replace("Artifact", "").toLowerCase()} "${title}"`
-    : `${done ? verbs[toolName] : streamingVerbs[toolName]} "${title}"`;
+  const label = cutOff
+    ? `Cut off while ${streamingVerbs[toolName]?.toLowerCase() ?? "writing"} "${title}"`
+    : failed
+      ? `Couldn't ${toolName.replace("Artifact", "").toLowerCase()} "${title}"`
+      : `${done ? verbs[toolName] : streamingVerbs[toolName]} "${title}"`;
 
   return (
     <button
@@ -92,11 +100,13 @@ export function ArtifactCard({ part }: { part: ToolUIPart }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{label}</span>
         <span className="block text-muted-foreground text-xs">
-          {failed && output && !output.ok
-            ? output.error
-            : kind
-              ? kindLabels[kind]
-              : "…"}
+          {cutOff
+            ? "The reply ended before this was complete — ask to try again"
+            : failed && output && !output.ok
+              ? output.error
+              : kind
+                ? kindLabels[kind]
+                : "…"}
           {done && snapshot && snapshot.versionCount > 1
             ? ` · v${snapshot.version}`
             : ""}

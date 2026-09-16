@@ -45,11 +45,30 @@ function snapshotOf(output: unknown): ArtifactSnapshot | null {
   return null;
 }
 
-export function ArtifactSync({ messages }: { messages: UIMessage[] }) {
-  const { upsert, setDraft, clearDraft } = useArtifacts();
+export function ArtifactSync({
+  messages,
+  busy,
+}: {
+  messages: UIMessage[];
+  busy: boolean;
+}) {
+  const { upsert, setDraft, clearDraft, setBusy } = useArtifacts();
   // Outputs already applied, so re-renders don't re-activate old artifacts.
   const appliedRef = useRef(new Set<string>());
   const draftsRef = useRef(new Set<string>());
+
+  // A stream that ends while a create/rewrite is still streaming its input
+  // (cut off, aborted, errored) leaves no artifact behind: drop the draft so
+  // the stage doesn't show "Writing…" forever. The card explains what happened.
+  useEffect(() => {
+    setBusy(busy);
+    if (!busy) {
+      for (const toolCallId of draftsRef.current) {
+        clearDraft(toolCallId);
+      }
+      draftsRef.current.clear();
+    }
+  }, [busy, clearDraft, setBusy]);
 
   useEffect(() => {
     const last = messages.at(-1);
@@ -64,7 +83,11 @@ export function ArtifactSync({ messages }: { messages: UIMessage[] }) {
       const toolName = part.type.slice("tool-".length);
       const { toolCallId } = part;
 
-      if (part.state === "input-streaming" && WRITE_TOOLS.has(toolName)) {
+      if (
+        busy &&
+        part.state === "input-streaming" &&
+        WRITE_TOOLS.has(toolName)
+      ) {
         const input = (part.input ?? {}) as Partial<{
           id: string;
           title: string;
@@ -107,7 +130,7 @@ export function ArtifactSync({ messages }: { messages: UIMessage[] }) {
         }
       }
     }
-  }, [messages, upsert, setDraft, clearDraft]);
+  }, [messages, busy, upsert, setDraft, clearDraft]);
 
   return null;
 }
