@@ -9,7 +9,7 @@ import {
   VisibilityProvider,
 } from "@json-render/react";
 import { Maximize2Icon, PinIcon } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useDeferredValue, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -60,20 +60,25 @@ export function UIRender({
     [sendText],
   );
 
-  if (!spec) {
+  // While a spec streams in, every patch would otherwise re-render the whole
+  // tree synchronously; deferring keeps typing and scrolling responsive.
+  const deferredSpec = useDeferredValue(spec);
+  const shownSpec = loading ? deferredSpec : spec;
+
+  if (!shownSpec) {
     return null;
   }
 
   return (
     <div className={cn("group/ui relative my-2 w-full", className)}>
-      <StateProvider initialState={spec.state ?? {}}>
+      <StateProvider initialState={shownSpec.state ?? {}}>
         <VisibilityProvider>
           <ActionProvider handlers={handlers}>
             <Renderer
               fallback={fallback}
               loading={loading}
               registry={registry}
-              spec={spec}
+              spec={shownSpec}
             />
           </ActionProvider>
         </VisibilityProvider>
@@ -87,7 +92,7 @@ export function UIRender({
                 aria-label="Expand on the stage"
                 className="size-7 bg-background"
                 onClick={() =>
-                  expand({ id: messageId, title: "Expanded", spec })
+                  expand({ id: messageId, title: "Expanded", spec: shownSpec })
                 }
                 size="icon-sm"
                 variant="outline"

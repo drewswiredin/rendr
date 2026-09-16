@@ -121,10 +121,18 @@ export function Chat({
   const isBusy = status === "submitted" || status === "streaming";
 
   // Stable across renders so pieces and inline UI holding it don't re-mount.
+  // Refuses to send while a reply is in flight: a button in a rendered piece
+  // must not stack requests the way a stream of clicks otherwise would.
   const messageCountRef = useRef(messages.length);
   messageCountRef.current = messages.length;
+  const busyRef = useRef(false);
+  busyRef.current = isBusy;
   const sendText = useCallback(
     (text: string) => {
+      if (busyRef.current) {
+        toast.message("Wait for the current reply to finish");
+        return;
+      }
       if (messageCountRef.current === 0 && window.location.pathname === "/") {
         window.history.replaceState({}, "", `/chat/${id}`);
       }
