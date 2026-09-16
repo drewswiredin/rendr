@@ -1,3 +1,4 @@
+import { appendFileSync } from "node:fs";
 import { pipeJsonRender } from "@json-render/core";
 import {
   createAgentUIStream,
@@ -20,6 +21,7 @@ import {
   updateChatTitle,
 } from "@/lib/db/queries";
 import { getGuestId } from "@/lib/guest";
+import { repairSpecLines } from "@/lib/ui/spec-repair";
 import { readUpload, uploadIdFromUrl } from "@/lib/uploads/store";
 
 export const maxDuration = 120;
@@ -118,6 +120,31 @@ async function inlineAttachments(
   );
 }
 
+// RENDR_DEBUG_STREAM=1 appends every raw text delta to data/stream-<chat>.log
+// before the json-render transform sees it — the only way to see what the
+// model literally wrote when a spec fails to render.
+function debugTap<T>(
+  stream: ReadableStream<T>,
+  chatId: string,
+): ReadableStream<T> {
+  if (process.env.RENDR_DEBUG_STREAM !== "1") {
+    return stream;
+  }
+  const file = `data/stream-${chatId}.log`;
+  appendFileSync(file, `\n\n===== ${new Date().toISOString()}\n`);
+  return stream.pipeThrough(
+    new TransformStream<T, T>({
+      transform(chunk, controller) {
+        const c = chunk as { type?: string; delta?: string };
+        if (c.type === "text-delta" && typeof c.delta === "string") {
+          appendFileSync(file, c.delta);
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+}
+
 export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -179,7 +206,7 @@ export async function POST(request: Request) {
         // outer stream sees it, so the mapping has to be applied here too.
         onError: describeError,
       });
-      writer.merge(pipeJsonRender(agentStream));
+      writer.merge(pipeJsonRender(repairSpecLines(debugTap(agentStream, id))));
     },
   });
 

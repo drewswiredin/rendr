@@ -64,7 +64,7 @@ ${uiCatalog.prompt({
     "Prefer the composites (Compare, KeyFacts, Steps, Itinerary, ProsCons, Choices) over assembling the same thing from Card/Stack/Text; use Card only to group several related composites.",
     "Keep pieces information-dense: no empty cards, no decorative headings that repeat the prose.",
     "Never nest a Card inside a Card.",
-    "Put chart rows in /state and bind the data prop with { $state: '/path' }; emit /state patches before the elements that use them.",
+    'Keep every JSONL line short. For any array prop with more than 3 items (Steps.steps, Itinerary.days, Compare.rows, Timeline.items, KeyFacts.facts, chart data), put the array in /state — one patch per item, e.g. {"op":"add","path":"/state/steps/0","value":{...}} — and bind the prop with { $state: \'/steps\' }. Emit the /state patches before the element that uses them. Long single-line objects get mis-bracketed and are dropped.',
     "Text content may contain inline markdown (bold, links, code) but no headings or lists — use Steps or KeyFacts for those.",
     "To ask the user something, use Choices for enumerable answers, or inputs bound with $bindState plus a Button whose on.press is { action: 'reply', params: { text: '... ${/path} ...' } }.",
   ],
