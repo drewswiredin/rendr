@@ -1,0 +1,93 @@
+import {
+  createAgentUIStreamResponse,
+  generateText,
+  type UIMessage,
+  validateUIMessages,
+} from "ai";
+import { after } from "next/server";
+import { z } from "zod";
+import { createAgent, type RendrUIMessage } from "@/lib/ai/agent";
+import { resolveModelId } from "@/lib/ai/models";
+import { titlePrompt } from "@/lib/ai/prompts";
+import { getTitleModel } from "@/lib/ai/providers";
+import {
+  createChat,
+  getChat,
+  saveMessages,
+  updateChatTitle,
+} from "@/lib/db/queries";
+import { getGuestId } from "@/lib/guest";
+
+export const maxDuration = 120;
+
+const bodySchema = z.object({
+  id: z.string().min(1),
+  messages: z.array(z.unknown()).min(1),
+  modelId: z.string().optional(),
+});
+
+function textOf(message: UIMessage): string {
+  return message.parts
+    .filter((p) => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
+}
+
+async function generateTitle(message: UIMessage): Promise<string> {
+  try {
+    const { text } = await generateText({
+      model: getTitleModel(),
+      system: titlePrompt,
+      prompt: `First message:\n"""\n${textOf(message).slice(0, 2000)}\n"""\n\nTitle:`,
+    });
+    const title = text
+      .trim()
+      .split("\n")[0]
+      .replace(/^["']|["'.]$/g, "");
+    return title.slice(0, 80) || "New chat";
+  } catch {
+    return "New chat";
+  }
+}
+
+export async function POST(request: Request) {
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json({ error: "bad request" }, { status: 400 });
+  }
+
+  const guestId = await getGuestId();
+  const { id, modelId } = parsed.data;
+  const messages = (await validateUIMessages({
+    messages: parsed.data.messages,
+  })) as RendrUIMessage[];
+  const last = messages.at(-1);
+  if (!last || last.role !== "user") {
+    return Response.json(
+      { error: "last message must be from user" },
+      { status: 400 },
+    );
+  }
+
+  const existing = await getChat({ id, guestId });
+  if (!existing) {
+    await createChat({ id, guestId });
+    after(async () => {
+      await updateChatTitle({ id, title: await generateTitle(last) });
+    });
+  }
+
+  await saveMessages({ chatId: id, messages: [last] });
+
+  const agent = createAgent({ modelId: resolveModelId(modelId) });
+
+  return createAgentUIStreamResponse({
+    agent,
+    uiMessages: messages,
+    originalMessages: messages,
+    generateMessageId: () => crypto.randomUUID(),
+    onEnd: async ({ responseMessage }) => {
+      await saveMessages({ chatId: id, messages: [responseMessage] });
+    },
+  });
+}
