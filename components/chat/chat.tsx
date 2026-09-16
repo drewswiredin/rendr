@@ -192,7 +192,12 @@ export function Chat({
               </div>
             ) : (
               <Conversation className="min-h-0 flex-1">
-                <ConversationContent className="mx-auto w-full max-w-3xl">
+                <ConversationContent
+                  className={cn(
+                    "mx-auto w-full",
+                    stageOpen ? "max-w-3xl" : "max-w-[min(90%,72rem)]",
+                  )}
+                >
                   {messages.map((message, index) => (
                     <MessageParts
                       isStreaming={
@@ -207,7 +212,12 @@ export function Chat({
               </Conversation>
             )}
 
-            <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+            <div
+              className={cn(
+                "mx-auto w-full px-4 pb-4",
+                stageOpen ? "max-w-3xl" : "max-w-[min(90%,72rem)]",
+              )}
+            >
               <PromptInput
                 accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json"
                 globalDrop

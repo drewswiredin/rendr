@@ -103,6 +103,7 @@ export function MessageParts({ message, isStreaming }: MessagePartsProps) {
           if (isTextUIPart(part)) {
             return (
               <MessageResponse
+                className="[&>p]:max-w-[75ch] [&>ul]:max-w-[75ch] [&>ol]:max-w-[75ch] [&>blockquote]:max-w-[75ch] [&>h1]:max-w-[75ch] [&>h2]:max-w-[75ch] [&>h3]:max-w-[75ch]"
                 codeBlockMaxHeight="none"
                 isAnimating={isStreaming && isLast}
                 key={key}
