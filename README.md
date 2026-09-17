@@ -10,6 +10,8 @@ working demonstration of the current state of **generative UI**: an LLM that
 streams user interface, not just words, with the guardrails that make that
 safe to ship.
 
+![rendr — a chat about simulation theory on the left; on the stage, an interactive three.js piece the agent built: nested simulated worlds with sliders for sims-per-world and nesting depth, and a "Where am I?" button](docs/screenshot.jpg)
+
 > Try: *"Paris or Rome for three days in October?"* → a side-by-side
 > comparison. *"Teach me about simulation theory"* → prose with a structured
 > breakdown. *"Visualize it in 3D"* → a three.js piece with sliders, built on
