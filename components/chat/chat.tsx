@@ -109,6 +109,9 @@ export function Chat({
     id,
     messages: initialMessages,
     transport,
+    // A reply keeps generating on the server when this page is left; pick
+    // it up again on return.
+    resume: true,
     onError: (error) => {
       toast.error(error.message || "Something went wrong");
     },
@@ -144,9 +147,11 @@ export function Chat({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
-      // While a reply streams, the submit button is the stop button.
+      // While a reply streams, the submit button is the stop button. The
+      // server keeps generating after a disconnect, so tell it explicitly.
       if (isBusy) {
         stop();
+        void fetch(`/api/chat/${id}/stream`, { method: "DELETE" });
         return;
       }
       const text = message.text?.trim() ?? "";

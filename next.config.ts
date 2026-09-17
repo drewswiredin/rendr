@@ -22,6 +22,8 @@ const sandboxCsp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // The Agent SDK spawns the Claude Code binary from its own package dir.
+  serverExternalPackages: ["@anthropic-ai/claude-agent-sdk"],
   async headers() {
     return [
       {

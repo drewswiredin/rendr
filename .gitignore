@@ -42,3 +42,5 @@ next-env.d.ts
 /data/*.db*
 /data/uploads/
 /data/stream-*.log
+/data/claude-sessions/
+/data/claude-events.log

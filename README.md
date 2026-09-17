@@ -26,10 +26,27 @@ way — Firecrawl, Exa, a database, your own. Found images go into an `Images`
 piece with captions and source links; consecutive lookups collapse into one
 "Looked up …" line in the thread.
 
+## Models
+
+Two backends behind one model picker (`lib/ai/models.ts`):
+
+- **Claude, on your subscription** — `claude-*` ids run through the
+  [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) under
+  the Claude Code login on the machine (`claude` → `/login`; Pro/Max plans
+  cover SDK usage). No API key; usage draws from the plan's limits. Each chat
+  is an SDK session (`chat.claude_session_id`) that later turns resume, so the
+  prompt-cache prefix is identical turn to turn; the system prompt is recorded
+  once per session. The bridge is `lib/ai/claude/stream.ts`: rendr's tools are
+  exposed to the SDK as an in-process MCP server, research servers from
+  `rendr.mcp.json` are passed straight through, and the SDK's stream is
+  translated into the same UI message chunks the AI SDK path produces.
+- **OpenRouter** — everything else (and Claude via API billing if you prefer),
+  through the AI SDK `ToolLoopAgent`. Needs `OPENROUTER_API_KEY`.
+
 ## Stack
 
 Next.js 16 · React 19 · Tailwind 4 · shadcn (Radix) · AI Elements · AI SDK 7
-(`ToolLoopAgent`) · OpenRouter · Streamdown · drizzle + libsql (SQLite) · Biome.
+(`ToolLoopAgent`) · Claude Agent SDK · OpenRouter · Streamdown · drizzle + libsql (SQLite) · Biome.
 
 No accounts: a guest cookie scopes chats per browser. A collapsible sidebar
 lists past conversations; attachments (images, PDFs, text) are stored under
@@ -45,7 +62,7 @@ in production set `NEXT_PUBLIC_SANDBOX_ORIGIN` (and `RENDR_HOST_ORIGINS` for the
 Requires Node 22+ and pnpm.
 
 ```sh
-cp .env.example .env.local   # set OPENROUTER_API_KEY
+cp .env.example .env.local   # OPENROUTER_API_KEY for non-Claude models; `claude` login for Claude
 pnpm install
 pnpm db:migrate
 pnpm dev
@@ -55,9 +72,10 @@ pnpm dev
 
 ```
 app/api/chat/route.ts      agent request handler; persists messages
-lib/ai/agent.ts            ToolLoopAgent factory (tools are added per channel)
+lib/ai/agent.ts            ToolLoopAgent factory for the OpenRouter backend (tools are added per channel)
+lib/ai/claude/             Claude Agent SDK backend: stream bridge + title generation
 lib/ai/prompts.ts          identity + form-selection rubric, assembled per channel
-lib/ai/models.ts           model list (OpenRouter ids)
+lib/ai/models.ts           model list (Claude SDK ids + OpenRouter ids) and backends
 lib/ai/tools/artifacts.ts  createArtifact / editArtifact / rewriteArtifact / readArtifact / listArtifacts
 lib/ui/catalog.ts          inline-UI vocabulary (Zod); lib/ui/registry.tsx renders it
 lib/mcp/                   MCP client registry: rendr.mcp.json → agent tools

@@ -1,0 +1,1 @@
+ALTER TABLE `chat` ADD `claude_session_id` text;

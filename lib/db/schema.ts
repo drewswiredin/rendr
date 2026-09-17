@@ -10,6 +10,9 @@ export const chat = sqliteTable("chat", {
   id: text("id").primaryKey(),
   guestId: text("guest_id").notNull(),
   title: text("title").notNull().default("New chat"),
+  // Claude Agent SDK session backing this chat (subscription backend), so
+  // later turns resume the transcript instead of replaying it.
+  claudeSessionId: text("claude_session_id"),
   createdAt: timestamp("created_at"),
 });
 

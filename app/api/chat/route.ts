@@ -5,19 +5,25 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateText,
+  type InferUIMessageChunk,
   type UIMessage,
   validateUIMessages,
 } from "ai";
 import { after } from "next/server";
 import { z } from "zod";
 import { createAgent, type RendrUIMessage } from "@/lib/ai/agent";
-import { resolveModelId } from "@/lib/ai/models";
-import { titlePrompt } from "@/lib/ai/prompts";
+import { researchServerLines, streamClaude } from "@/lib/ai/claude/stream";
+import { generateClaudeTitle } from "@/lib/ai/claude/title";
+import { beginLiveStream, publishLiveStream } from "@/lib/ai/live-streams";
+import { type ChatModel, getChatModel, resolveModelId } from "@/lib/ai/models";
+import { buildSystemPrompt, titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
+import { artifactTools } from "@/lib/ai/tools/artifacts";
 import {
   createChat,
   getChat,
   saveMessages,
+  setChatClaudeSession,
   updateChatTitle,
 } from "@/lib/db/queries";
 import { getGuestId } from "@/lib/guest";
@@ -45,13 +51,22 @@ function textOf(message: UIMessage): string {
     .join("\n");
 }
 
-async function generateTitle(message: UIMessage): Promise<string> {
+async function generateTitle(
+  message: UIMessage,
+  model: ChatModel,
+): Promise<string> {
   try {
-    const { text } = await generateText({
-      model: getTitleModel(),
-      system: titlePrompt,
-      prompt: `First message:\n"""\n${textOf(message).slice(0, 2000)}\n"""\n\nTitle:`,
-    });
+    const first = textOf(message).slice(0, 2000);
+    const text =
+      model.backend === "claude"
+        ? await generateClaudeTitle(first)
+        : (
+            await generateText({
+              model: getTitleModel(),
+              system: titlePrompt,
+              prompt: `First message:\n"""\n${first}\n"""\n\nTitle:`,
+            })
+          ).text;
     const title = text
       .trim()
       .split("\n")[0]
@@ -152,7 +167,8 @@ export async function POST(request: Request) {
   }
 
   const guestId = await getGuestId();
-  const { id, modelId, pieces } = parsed.data;
+  const { id, pieces } = parsed.data;
+  const model = getChatModel(resolveModelId(parsed.data.modelId));
   const messages = (await validateUIMessages({
     messages: parsed.data.messages,
   })) as RendrUIMessage[];
@@ -168,25 +184,60 @@ export async function POST(request: Request) {
   if (!existing) {
     await createChat({ id, guestId });
     after(async () => {
-      await updateChatTitle({ id, title: await generateTitle(last) });
+      await updateChatTitle({ id, title: await generateTitle(last, model) });
     });
   }
 
   await saveMessages({ chatId: id, messages: [last] });
 
-  const agent = await createAgent({
-    modelId: resolveModelId(modelId),
-    chatId: id,
-    guestId,
-    pieceContext: pieces?.length
-      ? pieces
-          .map(
-            (p) =>
-              `- "${p.title}" (id ${p.artifactId}): ${p.text.slice(0, 4000)}`,
-          )
-          .join("\n")
-      : undefined,
-  });
+  const pieceContext = pieces?.length
+    ? pieces
+        .map(
+          (p) =>
+            `- "${p.title}" (id ${p.artifactId}): ${p.text.slice(0, 4000)}`,
+        )
+        .join("\n")
+    : undefined;
+
+  // The reply outlives this request (see lib/ai/live-streams): generation is
+  // stopped by the stop button, not by the browser leaving the page.
+  const abort = beginLiveStream(id);
+
+  // The two backends produce the same chunk stream: the AI SDK agent loop on
+  // OpenRouter, or the Claude Agent SDK on the owner's Claude plan.
+  const agentStream = async (): Promise<
+    ReadableStream<InferUIMessageChunk<RendrUIMessage>>
+  > => {
+    const uiMessages = await inlineAttachments(messages, guestId);
+    if (model.backend === "claude") {
+      // The chunk stream is untyped on this path; it carries the same
+      // text/reasoning/tool chunks the agent stream does.
+      return streamClaude({
+        modelId: model.id,
+        systemPrompt: buildSystemPrompt({ mcpServers: researchServerLines() }),
+        messages: uiMessages,
+        tools: artifactTools({ chatId: id, guestId }),
+        sessionId: existing?.claudeSessionId ?? null,
+        pieceContext,
+        onSession: (sessionId) => setChatClaudeSession({ id, sessionId }),
+        abortSignal: abort.signal,
+      }) as ReadableStream<InferUIMessageChunk<RendrUIMessage>>;
+    }
+    const agent = await createAgent({
+      modelId: model.id,
+      chatId: id,
+      guestId,
+      pieceContext,
+    });
+    return createAgentUIStream({
+      agent,
+      uiMessages,
+      abortSignal: abort.signal,
+      // The provider error is turned into an error chunk here, before the
+      // outer stream sees it, so the mapping has to be applied here too.
+      onError: describeError,
+    });
+  };
 
   // The agent's stream passes through json-render's transform, which lifts
   // inline ```spec JSONL out of the text into data-spec parts; persistence
@@ -199,16 +250,14 @@ export async function POST(request: Request) {
       await saveMessages({ chatId: id, messages: [responseMessage] });
     },
     execute: async ({ writer }) => {
-      const agentStream = await createAgentUIStream({
-        agent,
-        uiMessages: await inlineAttachments(messages, guestId),
-        // The provider error is turned into an error chunk here, before the
-        // outer stream sees it, so the mapping has to be applied here too.
-        onError: describeError,
-      });
-      writer.merge(pipeJsonRender(repairSpecLines(debugTap(agentStream, id))));
+      writer.merge(
+        pipeJsonRender(repairSpecLines(debugTap(await agentStream(), id))),
+      );
     },
   });
 
-  return createUIMessageStreamResponse({ stream });
+  return createUIMessageStreamResponse({
+    stream,
+    consumeSseStream: ({ stream: copy }) => publishLiveStream(id, copy),
+  });
 }

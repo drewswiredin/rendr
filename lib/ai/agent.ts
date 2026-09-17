@@ -6,9 +6,10 @@ import { buildSystemPrompt } from "./prompts";
 import { getLanguageModel } from "./providers";
 import { artifactTools } from "./tools/artifacts";
 
-// The agent is created per request so the user's model choice and the
-// conversation's workspace apply. Each presentation channel contributes its
-// tools here and its prompt section in ./prompts.
+// The OpenRouter backend: an AI SDK agent created per request so the user's
+// model choice and the conversation's workspace apply. Each presentation
+// channel contributes its tools here and its prompt section in ./prompts.
+// (Claude models on the owner's subscription run through ./claude instead.)
 export async function createAgent({
   modelId,
   chatId,

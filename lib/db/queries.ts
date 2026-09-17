@@ -46,6 +46,19 @@ export async function updateChatTitle({
   await db.update(chat).set({ title }).where(eq(chat.id, id));
 }
 
+export async function setChatClaudeSession({
+  id,
+  sessionId,
+}: {
+  id: string;
+  sessionId: string | null;
+}) {
+  await db
+    .update(chat)
+    .set({ claudeSessionId: sessionId })
+    .where(eq(chat.id, id));
+}
+
 export async function deleteChat({
   id,
   guestId,
