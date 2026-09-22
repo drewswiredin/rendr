@@ -22,10 +22,17 @@ export const CLAUDE_TITLE_MODEL = "claude-haiku-4-5";
 // against https://openrouter.ai/api/v1/models
 export const chatModels: ChatModel[] = [
   {
+    id: "claude-opus-5-5",
+    name: "Claude Opus 5.5",
+    provider: "anthropic",
+    description: "Anthropic's flagship model · your Claude plan",
+    backend: "claude",
+  },
+  {
     id: "claude-opus-5",
     name: "Claude Opus 5",
     provider: "anthropic",
-    description: "Anthropic's flagship model · your Claude plan",
+    description: "Previous Opus release · your Claude plan",
     backend: "claude",
   },
   {
@@ -43,10 +50,17 @@ export const chatModels: ChatModel[] = [
     backend: "claude",
   },
   {
+    id: "anthropic/claude-opus-5.5",
+    name: "Claude Opus 5.5",
+    provider: "anthropic",
+    description: "Anthropic's flagship model · OpenRouter",
+    backend: "openrouter",
+  },
+  {
     id: "anthropic/claude-opus-5",
     name: "Claude Opus 5",
     provider: "anthropic",
-    description: "Anthropic's flagship model · OpenRouter",
+    description: "Previous Opus release · OpenRouter",
     backend: "openrouter",
   },
   {

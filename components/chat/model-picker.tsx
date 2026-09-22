@@ -41,7 +41,7 @@ export function ModelPicker({ value, onChange }: ModelPickerProps) {
           <ModelSelectorName>{selected.name}</ModelSelectorName>
         </PromptInputButton>
       </ModelSelectorTrigger>
-      <ModelSelectorContent title="Choose a model">
+      <ModelSelectorContent className="sm:max-w-xl" title="Choose a model">
         <ModelSelectorInput placeholder="Search models..." />
         <ModelSelectorList>
           <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
@@ -62,8 +62,10 @@ export function ModelPicker({ value, onChange }: ModelPickerProps) {
                     value={m.id}
                   >
                     <ModelSelectorLogo provider={m.provider} />
-                    <ModelSelectorName>{m.name}</ModelSelectorName>
-                    <span className="ml-2 truncate text-muted-foreground text-xs">
+                    <ModelSelectorName className="flex-none overflow-visible whitespace-nowrap text-clip">
+                      {m.name}
+                    </ModelSelectorName>
+                    <span className="ml-2 min-w-0 flex-1 truncate text-muted-foreground text-xs">
                       {m.description}
                     </span>
                     {m.id === value ? (
