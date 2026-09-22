@@ -1,0 +1,1 @@
+ALTER TABLE `chat` ADD `codex_thread_id` text;

@@ -13,6 +13,9 @@ export const chat = sqliteTable("chat", {
   // Claude Agent SDK session backing this chat (subscription backend), so
   // later turns resume the transcript instead of replaying it.
   claudeSessionId: text("claude_session_id"),
+  // Codex thread backing this chat (ChatGPT-subscription backend), for the
+  // same reason.
+  codexThreadId: text("codex_thread_id"),
   createdAt: timestamp("created_at"),
 });
 

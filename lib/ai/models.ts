@@ -1,7 +1,8 @@
-// Two backends: `claude` runs the Claude Agent SDK on the owner's Claude
-// subscription login (no API key; usage draws from the plan's limits);
+// Three backends: `claude` runs the Claude Agent SDK on the owner's Claude
+// subscription login and `codex` runs the Codex CLI on the owner's ChatGPT
+// login (no API key either way; usage draws from the plan's limits);
 // `openrouter` is pay-per-token via OpenRouter and covers every other lab.
-export type ModelBackend = "claude" | "openrouter";
+export type ModelBackend = "claude" | "codex" | "openrouter";
 
 export type ChatModel = {
   id: string;
@@ -9,9 +10,12 @@ export type ChatModel = {
   provider: string;
   description: string;
   backend: ModelBackend;
+  // What the backend is asked for, when that differs from `id`. Omitted on
+  // the codex backend means "whatever the CLI defaults to".
+  backendModel?: string;
 };
 
-export const DEFAULT_CHAT_MODEL = "claude-opus-5";
+export const DEFAULT_CHAT_MODEL = "claude-opus-5-5";
 
 // Title generation: the subscription path uses Haiku through the Agent SDK;
 // OpenRouter uses this id.
@@ -78,6 +82,38 @@ export const chatModels: ChatModel[] = [
     backend: "openrouter",
   },
   {
+    id: "codex-gpt-6-astra",
+    name: "GPT-6 Astra",
+    provider: "openai",
+    description: "OpenAI's most capable model · your ChatGPT plan",
+    backend: "codex",
+    backendModel: "gpt-6-astra",
+  },
+  {
+    id: "codex-gpt-5.6-sol",
+    name: "GPT-5.6 Sol",
+    provider: "openai",
+    description: "Frontier agentic model · your ChatGPT plan",
+    backend: "codex",
+    backendModel: "gpt-5.6-sol",
+  },
+  {
+    id: "codex-gpt-5.6-terra",
+    name: "GPT-5.6 Terra",
+    provider: "openai",
+    description: "Balanced, for everyday work · your ChatGPT plan",
+    backend: "codex",
+    backendModel: "gpt-5.6-terra",
+  },
+  {
+    id: "codex-gpt-5.6-luna",
+    name: "GPT-5.6 Luna",
+    provider: "openai",
+    description: "Fast and affordable · your ChatGPT plan",
+    backend: "codex",
+    backendModel: "gpt-5.6-luna",
+  },
+  {
     id: "deepseek/deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
     provider: "deepseek",
@@ -95,7 +131,7 @@ export const chatModels: ChatModel[] = [
     id: "openai/gpt-5.6-sol",
     name: "GPT-5.6 Sol",
     provider: "openai",
-    description: "OpenAI's flagship model",
+    description: "OpenAI's flagship model · OpenRouter",
     backend: "openrouter",
   },
   {

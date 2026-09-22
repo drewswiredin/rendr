@@ -24,6 +24,8 @@
     "@modelcontextprotocol/core": "^2.0.0",
     "@modelcontextprotocol/ext-apps": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
+    "@openai/codex": "0.155.1",
+    "@openai/codex-sdk": "0.155.1",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "@radix-ui/react-use-controllable-state": "^1.2.6",
     "@streamdown/cjk": "^1.0.3",

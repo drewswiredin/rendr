@@ -45,3 +45,4 @@ next-env.d.ts
 /data/stream-*.log
 /data/claude-sessions/
 /data/claude-events.log
+/data/codex-threads/

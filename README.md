@@ -42,9 +42,10 @@ Other things worth showing:
   into an `Images` piece with captions and source links.
 - **Replies survive navigation.** Generation runs to completion server-side;
   leaving and returning to a chat reconnects to the live stream.
-- **Two model backends behind one picker.** Claude on a Claude subscription
-  (through the Claude Agent SDK, no API key) or anything on OpenRouter — the
-  same prompt, tools and renderers on both.
+- **Three model backends behind one picker.** Claude on a Claude subscription
+  (through the Claude Agent SDK), GPT on a ChatGPT subscription (through the
+  Codex CLI) — neither needs an API key — or anything on OpenRouter. The same
+  prompt, tools and renderers on all three.
 - **Attachments.** Images, PDFs and text files go to the model.
 
 ## Demo script
@@ -79,14 +80,22 @@ ambition. Each prompt is a fresh message in the same chat.
 browser ──► /api/chat ──► backend ──► UI message chunk stream ──► json-render transform ──► client
                           │                                        (lifts ```spec JSON into data parts)
                           ├─ Claude Agent SDK  (Claude models, subscription-billed)
+                          ├─ Codex CLI         (GPT models, subscription-billed)
                           └─ AI SDK ToolLoopAgent + OpenRouter  (everything else)
 ```
 
-- **One stream format.** Both backends produce the AI SDK's UI message chunks
+- **One stream format.** Every backend produces the AI SDK's UI message chunks
   (`text-delta`, `reasoning-delta`, `tool-input-*`, `tool-output-*`). The
   Claude Agent SDK backend (`lib/ai/claude/stream.ts`) translates the SDK's
   Messages-API events into them, exposes rendr's tools to the SDK as an
-  in-process MCP server, and passes research servers straight through.
+  in-process MCP server, and passes research servers straight through. The
+  Codex backend (`lib/ai/codex/stream.ts`) does the same for the CLI's JSONL
+  thread events; since Codex only reaches MCP servers over a command or a URL,
+  the tools are served back to it for the length of one turn from
+  `/api/mcp/rendr/[token]` (`lib/ai/codex/tool-bridge.ts`), which executes them
+  in this process — so the UI still gets the full artifact snapshot. Codex
+  gates MCP calls behind approval and nobody is at a terminal to give it, so
+  rendr's servers are pre-approved in the thread's config.
 - **Inline UI is a transform, not a tool.** The model writes a ```` ```spec ````
   fence of JSONL patches inside its prose; `pipeJsonRender` lifts it out of the
   text stream into `data-spec` parts that the client assembles into a spec and
@@ -105,13 +114,20 @@ browser ──► /api/chat ──► backend ──► UI message chunk stream 
 
 ## Models
 
-Two backends behind one model picker (`lib/ai/models.ts`):
+Three backends behind one model picker (`lib/ai/models.ts`):
 
 - **Claude, on your subscription** — `claude-opus-5` (default),
   `claude-fable-5-1`, `claude-sonnet-5` run through the
   [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) under
   the Claude Code login on the machine (`claude` → `/login`; Pro/Max plans
   cover SDK usage). No API key; usage draws from the plan's limits.
+- **GPT, on your ChatGPT subscription** — `gpt-6-astra`, `gpt-5.6-sol`,
+  `gpt-5.6-terra`, `gpt-5.6-luna` run through the
+  [Codex SDK](https://www.npmjs.com/package/@openai/codex-sdk), which drives
+  the `codex` CLI bundled with the app (`pnpm exec codex login`; Plus/Pro plans
+  cover it). No API key; usage draws from the plan's limits.
+  `pnpm exec codex debug models` lists what the login can run — that catalog is
+  where these ids come from.
 - **OpenRouter** — Claude via API billing, DeepSeek, Kimi, GPT, Grok — through
   the AI SDK `ToolLoopAgent`. Needs `OPENROUTER_API_KEY`. Model ids must exist
   on `https://openrouter.ai/api/v1/models`.
@@ -129,16 +145,24 @@ way — Firecrawl, Exa, a database, your own.
 Requires Node 22+, pnpm, and (for the default research servers) `uv`.
 
 ```sh
-cp .env.example .env.local   # OPENROUTER_API_KEY for non-Claude models
+cp .env.example .env.local   # OPENROUTER_API_KEY for the pay-per-token models
 pnpm install
 pnpm db:migrate
 pnpm dev                     # http://localhost:3000
 ```
 
-For Claude models, log in once with Claude Code on the same machine
-(`claude`, then `/login`). No accounts in the app itself: a guest cookie scopes
-chats per browser; attachments live under `data/uploads`, the SQLite database
-under `data/`.
+The subscription backends each need one login on the same machine, and neither
+needs an API key:
+
+```sh
+claude                       # then /login — for the Claude models
+pnpm exec codex login        # ChatGPT sign-in — for the GPT models
+```
+
+No accounts in the app itself: a guest cookie scopes chats per browser;
+attachments live under `data/uploads`, the SQLite database under `data/`, and
+each backend's resumable sessions under `data/claude-sessions` and
+`data/codex-threads`.
 
 Pieces need a second origin for their sandbox. In development the app is at
 `localhost:3000` and the sandbox at `127.0.0.1:3000` automatically; in
@@ -148,7 +172,7 @@ production set `NEXT_PUBLIC_SANDBOX_ORIGIN` (and `RENDR_HOST_ORIGINS` for the
 ## Stack
 
 Next.js 16 · React 19 · Tailwind 4 · shadcn (Radix) · AI Elements · AI SDK 7 ·
-Claude Agent SDK · OpenRouter · json-render · MCP Apps · Streamdown · drizzle +
+Claude Agent SDK · Codex SDK · OpenRouter · json-render · MCP Apps · Streamdown · drizzle +
 libsql (SQLite) · Biome.
 
 ## Layout
@@ -158,6 +182,8 @@ app/api/chat/route.ts        request handler: picks the backend, persists messag
 app/api/chat/[id]/stream/    resume (GET) and stop (DELETE) a reply in flight
 lib/ai/agent.ts              ToolLoopAgent factory for the OpenRouter backend
 lib/ai/claude/               Claude Agent SDK backend: stream bridge + title generation
+lib/ai/codex/                Codex CLI backend: stream bridge, tool bridge, title generation
+app/api/mcp/rendr/[token]/   the presentation tools, served to the Codex CLI over MCP
 lib/ai/live-streams.ts       in-memory registry of in-flight replies
 lib/ai/prompts.ts            identity + form-selection rubric, assembled per channel
 lib/ai/models.ts             model list and backends

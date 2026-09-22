@@ -59,6 +59,16 @@ export async function setChatClaudeSession({
     .where(eq(chat.id, id));
 }
 
+export async function setChatCodexThread({
+  id,
+  threadId,
+}: {
+  id: string;
+  threadId: string | null;
+}) {
+  await db.update(chat).set({ codexThreadId: threadId }).where(eq(chat.id, id));
+}
+
 export async function deleteChat({
   id,
   guestId,

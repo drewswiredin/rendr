@@ -14,6 +14,11 @@ import { z } from "zod";
 import { createAgent, type RendrUIMessage } from "@/lib/ai/agent";
 import { researchServerLines, streamClaude } from "@/lib/ai/claude/stream";
 import { generateClaudeTitle } from "@/lib/ai/claude/title";
+import {
+  researchServerLines as codexResearchServerLines,
+  streamCodex,
+} from "@/lib/ai/codex/stream";
+import { generateCodexTitle } from "@/lib/ai/codex/title";
 import { beginLiveStream, publishLiveStream } from "@/lib/ai/live-streams";
 import { type ChatModel, getChatModel, resolveModelId } from "@/lib/ai/models";
 import { buildSystemPrompt, titlePrompt } from "@/lib/ai/prompts";
@@ -24,6 +29,7 @@ import {
   getChat,
   saveMessages,
   setChatClaudeSession,
+  setChatCodexThread,
   updateChatTitle,
 } from "@/lib/db/queries";
 import { getGuestId } from "@/lib/guest";
@@ -60,13 +66,15 @@ async function generateTitle(
     const text =
       model.backend === "claude"
         ? await generateClaudeTitle(first)
-        : (
-            await generateText({
-              model: getTitleModel(),
-              system: titlePrompt,
-              prompt: `First message:\n"""\n${first}\n"""\n\nTitle:`,
-            })
-          ).text;
+        : model.backend === "codex"
+          ? await generateCodexTitle(first)
+          : (
+              await generateText({
+                model: getTitleModel(),
+                system: titlePrompt,
+                prompt: `First message:\n"""\n${first}\n"""\n\nTitle:`,
+              })
+            ).text;
     const title = text
       .trim()
       .split("\n")[0]
@@ -209,6 +217,21 @@ export async function POST(request: Request) {
     ReadableStream<InferUIMessageChunk<RendrUIMessage>>
   > => {
     const uiMessages = await inlineAttachments(messages, guestId);
+    if (model.backend === "codex") {
+      // Untyped on this path too; same text/reasoning/tool chunks.
+      return streamCodex({
+        model: model.backendModel,
+        systemPrompt: buildSystemPrompt({
+          mcpServers: codexResearchServerLines(),
+        }),
+        messages: uiMessages,
+        tools: artifactTools({ chatId: id, guestId }),
+        threadId: existing?.codexThreadId ?? null,
+        pieceContext,
+        onThread: (threadId) => setChatCodexThread({ id, threadId }),
+        abortSignal: abort.signal,
+      }) as ReadableStream<InferUIMessageChunk<RendrUIMessage>>;
+    }
     if (model.backend === "claude") {
       // The chunk stream is untyped on this path; it carries the same
       // text/reasoning/tool chunks the agent stream does.
