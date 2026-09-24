@@ -1,5 +1,17 @@
 name: build-deploy
 
+# Builds ghcr.io/<owner>/rendr on every push to main. Deployment details are
+# repository secrets, so this file carries nothing about where it runs, and
+# secrets are masked in the (public) run logs:
+#
+#   SANDBOX_ORIGIN     e.g. https://rendr-sandbox.example.com   (build arg)
+#   HOST_ORIGINS       e.g. https://rendr.example.com           (build arg)
+#   DEPLOY_REPO        optional GitOps repo, e.g. you/infra
+#   DEPLOY_STACK_FILE  compose file in it that pins the image tag
+#   IAC_DEPLOY_KEY     SSH deploy key with write access to DEPLOY_REPO
+#
+# Without DEPLOY_REPO the image is built and pushed and nothing else happens.
+
 on:
   push:
     branches: [main]
@@ -9,9 +21,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  IMAGE: ghcr.io/drewswiredin/rendr
-
 jobs:
   # `next build` inside the image type-checks; a failing build never deploys.
   build:
@@ -20,12 +29,15 @@ jobs:
       group: build-${{ github.ref_name }}
       cancel-in-progress: true
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
 
-      - id: tag
-        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - id: meta
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v4
 
@@ -36,42 +48,52 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # The sandbox origin and the CSP frame-ancestors are baked in at build
-      # time, so the image is specific to the homelab hostnames.
+      # time (see README, "Self-hosting").
       - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           build-args: |
-            NEXT_PUBLIC_SANDBOX_ORIGIN=https://rendr-sandbox.hsd-inc.net
-            RENDR_HOST_ORIGINS=https://rendr.hsd-inc.net
+            NEXT_PUBLIC_SANDBOX_ORIGIN=${{ secrets.SANDBOX_ORIGIN }}
+            RENDR_HOST_ORIGINS=${{ secrets.HOST_ORIGINS }}
           tags: |
-            ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
-            ${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Deploys are a git commit: bump the pinned image tag in home-network,
-  # Portainer redeploys the stack from there.
+  # Deploys are a git commit: bump the pinned image tag in the GitOps repo and
+  # let whatever watches it (Portainer, Argo CD, Flux, …) roll it out.
   deploy:
     needs: build
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-rendr
+    env:
+      DEPLOY_REPO: ${{ secrets.DEPLOY_REPO }}
+      STACK_FILE: ${{ secrets.DEPLOY_STACK_FILE }}
     steps:
-      - uses: actions/checkout@v6
+      - name: Skip when no deploy target is configured
+        if: env.DEPLOY_REPO == ''
+        run: echo "DEPLOY_REPO not set; image pushed, nothing to deploy"
+
+      - if: env.DEPLOY_REPO != ''
+        uses: actions/checkout@v6
         with:
-          repository: drewswiredin/home-network
+          repository: ${{ secrets.DEPLOY_REPO }}
           ssh-key: ${{ secrets.IAC_DEPLOY_KEY }}
 
-      - name: Bump image tag in stack
+      - name: Bump image tag
+        if: env.DEPLOY_REPO != ''
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+          TAG: ${{ needs.build.outputs.tag }}
         run: |
-          TAG='${{ needs.build.outputs.tag }}'
-          sed -i -E "s|(image: ghcr\.io/drewswiredin/rendr:).*|\1${TAG}|" \
-            stacks/rendr/docker-compose.yml
+          sed -i -E "s|(image: ${IMAGE//./\\.}:).*|\1${TAG}|" "$STACK_FILE"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add stacks/rendr/docker-compose.yml
+          git add "$STACK_FILE"
           git diff --cached --quiet && { echo "tag unchanged, nothing to deploy"; exit 0; }
           git commit -m "deploy(rendr): ${TAG}" \
-            -m "source: drewswiredin/rendr@${{ github.sha }}"
+            -m "source: ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
           git push

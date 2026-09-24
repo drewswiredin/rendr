@@ -179,17 +179,76 @@ Pieces need a second origin for their sandbox. In development the app is at
 production set `NEXT_PUBLIC_SANDBOX_ORIGIN` (and `RENDR_HOST_ORIGINS` for the
 `frame-ancestors` CSP).
 
-### Deploying
+## Self-hosting (e.g. on a home network)
 
-`Dockerfile` builds one image with both subscription CLIs and `uv`. The sandbox
-origin and the CSP's `frame-ancestors` are baked in at build time
-(`--build-arg NEXT_PUBLIC_SANDBOX_ORIGIN=… RENDR_HOST_ORIGINS=…`). Mount a
-volume at `/app/data`: it holds the database, uploads, sessions and `HOME`,
-so the Codex login (`docker exec -it rendr node_modules/.bin/codex login
---device-auth`) survives restarts. For Claude, set `CLAUDE_CODE_OAUTH_TOKEN`
-from `claude setup-token`. There are no accounts, so keep it behind an
-access list. `.github/workflows/build-deploy.yml` pushes to ghcr and bumps the
-owner's homelab stack.
+rendr runs as one container behind a TLS reverse proxy. The subscription
+backends make it cheap to run for yourself: no API keys, usage comes out of
+the plans you already pay for. Those plans are personal, which shapes the
+setup below.
+
+**1. Pick two hostnames** on the same proxy and container, e.g.
+`rendr.example.com` (the app) and `rendr-sandbox.example.com` (the origin
+agent-written pieces run on). They must be different origins; that is the
+sandbox.
+
+**2. Build the image.** Both names are compiled in (`NEXT_PUBLIC_*` is inlined
+into the client bundle, and the sandbox CSP is written at build time):
+
+```sh
+docker build -t rendr \
+  --build-arg NEXT_PUBLIC_SANDBOX_ORIGIN=https://rendr-sandbox.example.com \
+  --build-arg RENDR_HOST_ORIGINS=https://rendr.example.com .
+```
+
+The image carries both subscription CLIs and `uv`, so it is large (~3 GB
+unpacked). Because it bakes in your hostnames, keep it in a private registry.
+
+**3. Run it.** It listens on 3000 and runs as uid 1000. Everything stateful
+goes under `/app/data`, including `HOME`, so logins and sessions survive
+restarts and upgrades:
+
+```yaml
+services:
+  rendr:
+    image: rendr
+    restart: unless-stopped
+    ports: ["3002:3000"]
+    mem_limit: 1536m   # ~130 MB idle, ~400 MB after a Claude turn
+    environment:
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}   # optional
+    volumes:
+      - /srv/rendr/data:/app/data   # chown 1000:1000 first
+```
+
+**4. Sign in to the subscriptions**, once per server:
+
+- *Claude*: on any machine with a browser, run `claude setup-token` and set
+  its output as `CLAUDE_CODE_OAUTH_TOKEN`. It's a separate one-year token for
+  headless use. Don't copy `~/.claude/.credentials.json` from your laptop:
+  its refresh token changes each time it's used, so whichever copy refreshes
+  second gets logged out, possibly your laptop's.
+- *ChatGPT*: `docker exec -it <container> node_modules/.bin/codex login
+  --device-auth`, then enter the code it prints at the URL it shows. The login
+  lands in the data volume and refreshes itself. Don't copy your laptop's
+  `~/.codex/auth.json`, for the same reason.
+
+**5. Keep it private.** rendr has no accounts (a cookie keeps each browser's
+chats separate), and anyone who can reach it spends your plans. Put both
+hostnames behind an IP allow-list for your LAN and VPN subnets at the proxy.
+Watch out for a public wildcard DNS record that points everything at your WAN
+address. Split-horizon DNS (local overrides pointing at the proxy) plus the
+allow-list covers it.
+
+**Proxy notes.** Replies are streamed; the app sends `X-Accel-Buffering: no`,
+which nginx-based proxies honour. Other proxies need response buffering off
+for these routes. No websockets or special timeouts are needed.
+
+**CI.** `.github/workflows/build-deploy.yml` builds and pushes
+`ghcr.io/<owner>/rendr:sha-<commit>` on every push to `main`. It reads the
+hostnames from repository secrets, and it can GitOps-deploy by bumping a
+pinned tag in another repo (whatever watches that repo does the rollout).
+The secrets it expects are listed at the top of the file.
 
 ## Stack
 
