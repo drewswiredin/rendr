@@ -1,0 +1,77 @@
+name: build-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/drewswiredin/rendr
+
+jobs:
+  # `next build` inside the image type-checks; a failing build never deploys.
+  build:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: build-${{ github.ref_name }}
+      cancel-in-progress: true
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The sandbox origin and the CSP frame-ancestors are baked in at build
+      # time, so the image is specific to the homelab hostnames.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: |
+            NEXT_PUBLIC_SANDBOX_ORIGIN=https://rendr-sandbox.hsd-inc.net
+            RENDR_HOST_ORIGINS=https://rendr.hsd-inc.net
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+            ${{ env.IMAGE }}:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploys are a git commit: bump the pinned image tag in home-network,
+  # Portainer redeploys the stack from there.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-rendr
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: drewswiredin/home-network
+          ssh-key: ${{ secrets.IAC_DEPLOY_KEY }}
+
+      - name: Bump image tag in stack
+        run: |
+          TAG='${{ needs.build.outputs.tag }}'
+          sed -i -E "s|(image: ghcr\.io/drewswiredin/rendr:).*|\1${TAG}|" \
+            stacks/rendr/docker-compose.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add stacks/rendr/docker-compose.yml
+          git diff --cached --quiet && { echo "tag unchanged, nothing to deploy"; exit 0; }
+          git commit -m "deploy(rendr): ${TAG}" \
+            -m "source: drewswiredin/rendr@${{ github.sha }}"
+          git push

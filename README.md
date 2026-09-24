@@ -179,6 +179,18 @@ Pieces need a second origin for their sandbox. In development the app is at
 production set `NEXT_PUBLIC_SANDBOX_ORIGIN` (and `RENDR_HOST_ORIGINS` for the
 `frame-ancestors` CSP).
 
+### Deploying
+
+`Dockerfile` builds one image with both subscription CLIs and `uv`. The sandbox
+origin and the CSP's `frame-ancestors` are baked in at build time
+(`--build-arg NEXT_PUBLIC_SANDBOX_ORIGIN=… RENDR_HOST_ORIGINS=…`). Mount a
+volume at `/app/data`: it holds the database, uploads, sessions and `HOME`,
+so the Codex login (`docker exec -it rendr node_modules/.bin/codex login
+--device-auth`) survives restarts. For Claude, set `CLAUDE_CODE_OAUTH_TOKEN`
+from `claude setup-token`. There are no accounts, so keep it behind an
+access list. `.github/workflows/build-deploy.yml` pushes to ghcr and bumps the
+owner's homelab stack.
+
 ## Stack
 
 Next.js 16 · React 19 · Tailwind 4 · shadcn (Radix) · AI Elements · AI SDK 7 ·
