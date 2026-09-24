@@ -12,6 +12,7 @@ import {
   tool as sdkTool,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { Tool, ToolSet, UIMessage, UIMessageChunk } from "ai";
+import type { Effort } from "@/lib/ai/models";
 import { loadMcpConfig } from "@/lib/mcp/config";
 
 // The subscription backend: rendr's agent loop run by the Claude Agent SDK
@@ -33,6 +34,8 @@ const MAX_TURNS = 12;
 
 export type ClaudeStreamParams = {
   modelId: string;
+  // Reasoning effort; omitted leaves the SDK's own default.
+  effort?: Effort;
   systemPrompt: string;
   messages: UIMessage[];
   // AI SDK tools executed in-process (the artifact tools).
@@ -350,6 +353,7 @@ async function run(
 
   const options: Options = {
     model: params.modelId,
+    effort: params.effort,
     cwd: SESSIONS_CWD,
     resume: resume ?? undefined,
     systemPrompt: {

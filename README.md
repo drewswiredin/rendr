@@ -46,6 +46,10 @@ Other things worth showing:
   (through the Claude Agent SDK), GPT on a ChatGPT subscription (through the
   Codex CLI) — neither needs an API key — or anything on OpenRouter. The same
   prompt, tools and renderers on all three.
+- **Reasoning effort in the composer.** Every model here takes a thinking
+  level; the picker offers the rungs that model supports, and "Auto" leaves
+  the backend's own default. Model and effort are remembered per chat, so
+  reopening one comes back to what it last ran with.
 - **Attachments.** Images, PDFs and text files go to the model.
 
 ## Demo script
@@ -131,6 +135,12 @@ Three backends behind one model picker (`lib/ai/models.ts`):
 - **OpenRouter** — Claude via API billing, DeepSeek, Kimi, GPT, Grok — through
   the AI SDK `ToolLoopAgent`. Needs `OPENROUTER_API_KEY`. Model ids must exist
   on `https://openrouter.ai/api/v1/models`.
+
+Reasoning effort rides the same picker on all three: the Agent SDK's `effort`,
+Codex's `modelReasoningEffort`, and OpenRouter's `reasoning.effort` (which
+tops out at `xhigh`; the subscription CLIs also take `max`). On OpenRouter a
+chosen level replaces the default 8k reasoning-token budget, since the API
+takes one or the other.
 
 ## Research (MCP)
 

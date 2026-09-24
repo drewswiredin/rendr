@@ -15,7 +15,12 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import { PromptInputButton } from "@/components/ai-elements/prompt-input";
-import { chatModels, providerLabels } from "@/lib/ai/models";
+import {
+  chatModels,
+  modelDescription,
+  modelLabel,
+  providerLabels,
+} from "@/lib/ai/models";
 
 type ModelPickerProps = {
   value: string;
@@ -38,7 +43,7 @@ export function ModelPicker({ value, onChange }: ModelPickerProps) {
       <ModelSelectorTrigger asChild>
         <PromptInputButton>
           <ModelSelectorLogo provider={selected.provider} />
-          <ModelSelectorName>{selected.name}</ModelSelectorName>
+          <ModelSelectorName>{modelLabel(selected)}</ModelSelectorName>
         </PromptInputButton>
       </ModelSelectorTrigger>
       <ModelSelectorContent className="sm:max-w-xl" title="Choose a model">
@@ -66,7 +71,7 @@ export function ModelPicker({ value, onChange }: ModelPickerProps) {
                       {m.name}
                     </ModelSelectorName>
                     <span className="ml-2 min-w-0 flex-1 truncate text-muted-foreground text-xs">
-                      {m.description}
+                      {modelDescription(m)}
                     </span>
                     {m.id === value ? (
                       <CheckIcon className="ml-auto size-4" />

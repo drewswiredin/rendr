@@ -20,7 +20,12 @@ import {
 } from "@/lib/ai/codex/stream";
 import { generateCodexTitle } from "@/lib/ai/codex/title";
 import { beginLiveStream, publishLiveStream } from "@/lib/ai/live-streams";
-import { type ChatModel, getChatModel, resolveModelId } from "@/lib/ai/models";
+import {
+  type ChatModel,
+  getChatModel,
+  resolveEffort,
+  resolveModelId,
+} from "@/lib/ai/models";
 import { buildSystemPrompt, titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
 import { artifactTools } from "@/lib/ai/tools/artifacts";
@@ -30,6 +35,7 @@ import {
   saveMessages,
   setChatClaudeSession,
   setChatCodexThread,
+  setChatModel,
   updateChatTitle,
 } from "@/lib/db/queries";
 import { getGuestId } from "@/lib/guest";
@@ -42,6 +48,7 @@ const bodySchema = z.object({
   id: z.string().min(1),
   messages: z.array(z.unknown()).min(1),
   modelId: z.string().optional(),
+  effort: z.string().optional(),
   // State reported by interactive pieces on the stage (rendr.setContext()).
   pieces: z
     .array(
@@ -177,6 +184,9 @@ export async function POST(request: Request) {
   const guestId = await getGuestId();
   const { id, pieces } = parsed.data;
   const model = getChatModel(resolveModelId(parsed.data.modelId));
+  // "auto" means: send no effort at all and let the backend decide.
+  const choice = resolveEffort(model, parsed.data.effort);
+  const effort = choice === "auto" ? undefined : choice;
   const messages = (await validateUIMessages({
     messages: parsed.data.messages,
   })) as RendrUIMessage[];
@@ -197,6 +207,8 @@ export async function POST(request: Request) {
   }
 
   await saveMessages({ chatId: id, messages: [last] });
+  // Reopening this chat comes back to the model and effort it last ran with.
+  await setChatModel({ id, modelId: model.id, effort: choice });
 
   const pieceContext = pieces?.length
     ? pieces
@@ -221,6 +233,7 @@ export async function POST(request: Request) {
       // Untyped on this path too; same text/reasoning/tool chunks.
       return streamCodex({
         model: model.backendModel,
+        effort,
         systemPrompt: buildSystemPrompt({
           mcpServers: codexResearchServerLines(),
         }),
@@ -237,6 +250,7 @@ export async function POST(request: Request) {
       // text/reasoning/tool chunks the agent stream does.
       return streamClaude({
         modelId: model.id,
+        effort,
         systemPrompt: buildSystemPrompt({ mcpServers: researchServerLines() }),
         messages: uiMessages,
         tools: artifactTools({ chatId: id, guestId }),
@@ -248,6 +262,7 @@ export async function POST(request: Request) {
     }
     const agent = await createAgent({
       modelId: model.id,
+      effort,
       chatId: id,
       guestId,
       pieceContext,

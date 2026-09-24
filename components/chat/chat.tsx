@@ -33,23 +33,38 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { MODEL_COOKIE } from "@/lib/ai/models";
+import {
+  EFFORT_COOKIE,
+  type EffortChoice,
+  getChatModel,
+  MODEL_COOKIE,
+  resolveEffort,
+} from "@/lib/ai/models";
 import type { ArtifactSnapshot } from "@/lib/artifacts/kinds";
 import { cn } from "@/lib/utils";
 import { useArtifacts } from "@/stores/artifacts";
 import { useHistory } from "@/stores/history";
 import { ChatProvider } from "./chat-context";
 import { ComposerAttachments } from "./composer-attachments";
+import { EffortPicker } from "./effort-picker";
 import { HistorySidebar } from "./history-sidebar";
 import { MessageParts } from "./message-parts";
 import { ModelPicker } from "./model-picker";
 import { uploadAttachments } from "./upload";
+
+// Both choices are remembered two ways: in a cookie, which seeds the next new
+// chat, and on the chat row (by the API), so reopening a chat comes back to
+// what it last ran with.
+function remember(name: string, value: string) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; samesite=lax`;
+}
 
 type ChatProps = {
   id: string;
   initialMessages: UIMessage[];
   initialArtifacts: ArtifactSnapshot[];
   initialModelId: string;
+  initialEffort: EffortChoice;
 };
 
 export function Chat({
@@ -57,6 +72,7 @@ export function Chat({
   initialMessages,
   initialArtifacts,
   initialModelId,
+  initialEffort,
 }: ChatProps) {
   const stageOpen = useArtifacts((s) => s.open);
   const artifactCount = useArtifacts(
@@ -75,13 +91,28 @@ export function Chat({
 
   const [modelId, setModelIdState] = useState(initialModelId);
   const modelIdRef = useRef(modelId);
+  const [effort, setEffortState] = useState<EffortChoice>(initialEffort);
+  const effortRef = useRef(effort);
   const [text, setText] = useState("");
 
-  const setModelId = useCallback((next: string) => {
-    modelIdRef.current = next;
-    setModelIdState(next);
-    document.cookie = `${MODEL_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=31536000; samesite=lax`;
+  const model = useMemo(() => getChatModel(modelId), [modelId]);
+
+  const setEffort = useCallback((next: EffortChoice) => {
+    effortRef.current = next;
+    setEffortState(next);
+    remember(EFFORT_COOKIE, next);
   }, []);
+
+  const setModelId = useCallback(
+    (next: string) => {
+      modelIdRef.current = next;
+      setModelIdState(next);
+      remember(MODEL_COOKIE, next);
+      // A rung the new model doesn't offer falls back to its default.
+      setEffort(resolveEffort(getChatModel(next), effortRef.current));
+    },
+    [setEffort],
+  );
 
   const transport = useMemo(
     () =>
@@ -97,7 +128,13 @@ export function Chat({
             }),
           );
           return {
-            body: { id: chatId, messages, modelId: modelIdRef.current, pieces },
+            body: {
+              id: chatId,
+              messages,
+              modelId: modelIdRef.current,
+              effort: effortRef.current,
+              pieces,
+            },
           };
         },
       }),
@@ -258,6 +295,11 @@ export function Chat({
                       </PromptInputActionMenuContent>
                     </PromptInputActionMenu>
                     <ModelPicker onChange={setModelId} value={modelId} />
+                    <EffortPicker
+                      model={model}
+                      onChange={setEffort}
+                      value={effort}
+                    />
                   </PromptInputTools>
                   <PromptInputSubmit
                     disabled={!(text.trim() || isBusy)}

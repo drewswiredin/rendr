@@ -9,6 +9,7 @@ import {
   type ThreadOptions,
 } from "@openai/codex-sdk";
 import type { ToolSet, UIMessage, UIMessageChunk } from "ai";
+import type { Effort } from "@/lib/ai/models";
 import { loadMcpConfig } from "@/lib/mcp/config";
 import {
   bridgeUrl,
@@ -39,9 +40,20 @@ const THREADS_CWD = path.join(process.cwd(), "data", "codex-threads");
 const APPROVE_TOOLS = "approve";
 const IMAGES_DIR = path.join(THREADS_CWD, "images");
 
+// Turning the skills off (see `skills` in the config below) stops Codex from
+// advertising them, but the image generator behind the imagegen skill is a
+// tool of the CLI's own, reachable whether or not the skill is described. It
+// writes a PNG to $CODEX_HOME that only this backend can produce and nothing
+// downstream can render, so the prompt closes the gap.
+const BACKEND_CONSTRAINTS = `<backend_constraints>
+Do not generate raster images: rendr has no channel that can show one, so the user sees nothing. Show what you mean with rendr's own forms — a diagram, a table, a piece — or with real images found through the research tools.
+</backend_constraints>`;
+
 export type CodexStreamParams = {
   // Omitted: whatever model the Codex CLI defaults to.
   model?: string;
+  // Reasoning effort; omitted leaves the model's own default.
+  effort?: Effort;
   systemPrompt: string;
   messages: UIMessage[];
   // AI SDK tools, executed in-process behind the MCP bridge.
@@ -118,6 +130,7 @@ function buildInput(
 
   if (fresh) {
     preamble.push(`<instructions>\n${systemPrompt}\n</instructions>`);
+    preamble.push(BACKEND_CONSTRAINTS);
     if (messages.length > 1) {
       const transcript = messages
         .slice(0, -1)
@@ -212,6 +225,12 @@ async function run(
 
   const options: CodexOptions = {
     config: {
+      // Codex ships its own skills (imagegen, plugin management) and offers
+      // them to the model alongside rendr's tools — a capability the other
+      // two backends don't have and no presentation channel can render. The
+      // agent here is rendr's tools and the research servers, nothing else.
+      // (Compare the Claude path's `tools: []` / `settingSources: []`.)
+      skills: { include_instructions: false, bundled: { enabled: false } },
       mcp_servers: {
         [SERVER_NAME]: {
           url: bridgeUrl(bridge.token),
@@ -228,6 +247,7 @@ async function run(
   };
   const threadOptions: ThreadOptions = {
     model: params.model,
+    modelReasoningEffort: params.effort,
     workingDirectory: THREADS_CWD,
     skipGitRepoCheck: true,
     // rendr's agent writes artifacts through the tools, never through the

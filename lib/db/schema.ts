@@ -16,6 +16,11 @@ export const chat = sqliteTable("chat", {
   // Codex thread backing this chat (ChatGPT-subscription backend), for the
   // same reason.
   codexThreadId: text("codex_thread_id"),
+  // The model and reasoning effort this chat last ran with, so reopening it
+  // picks up where it left off instead of inheriting whatever the last chat
+  // used.
+  modelId: text("model_id"),
+  effort: text("effort"),
   createdAt: timestamp("created_at"),
 });
 

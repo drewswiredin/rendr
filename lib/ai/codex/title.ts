@@ -12,6 +12,11 @@ const THREADS_CWD = path.join(process.cwd(), "data", "codex-threads");
 export async function generateCodexTitle(firstMessage: string) {
   mkdirSync(THREADS_CWD, { recursive: true });
   const codex = new Codex({
+    // Same as the chat path: none of Codex's own skills, which a title has no
+    // use for and which are most of this turn's input.
+    config: {
+      skills: { include_instructions: false, bundled: { enabled: false } },
+    },
     env: { ...(process.env as Record<string, string>), OPENAI_API_KEY: "" },
   });
   const thread = codex.startThread({

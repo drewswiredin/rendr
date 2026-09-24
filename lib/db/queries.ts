@@ -69,6 +69,18 @@ export async function setChatCodexThread({
   await db.update(chat).set({ codexThreadId: threadId }).where(eq(chat.id, id));
 }
 
+export async function setChatModel({
+  id,
+  modelId,
+  effort,
+}: {
+  id: string;
+  modelId: string;
+  effort: string;
+}) {
+  await db.update(chat).set({ modelId, effort }).where(eq(chat.id, id));
+}
+
 export async function deleteChat({
   id,
   guestId,
