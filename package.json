@@ -11,7 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx lib/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "sync:mcp-app": "cp node_modules/@modelcontextprotocol/ext-apps/dist/src/app-with-deps.js public/mcp-app.js"
+    "sync:mcp-app": "cp node_modules/@modelcontextprotocol/ext-apps/dist/src/app-with-deps.js public/mcp-app.js",
+    "db:backfill-usage": "tsx scripts/backfill-usage.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.105",

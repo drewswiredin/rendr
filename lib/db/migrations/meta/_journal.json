@@ -29,6 +29,13 @@
       "when": 1790185188456,
       "tag": "0003_motionless_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790225777824,
+      "tag": "0004_gorgeous_marten_broadcloak",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 const timestamp = (name: string) =>
   integer(name, { mode: "timestamp_ms" })
@@ -56,6 +56,27 @@ export const artifactVersion = sqliteTable("artifact_version", {
   createdAt: timestamp("created_at"),
 });
 
+// One row per model call: the reply turns, and the title turn that has no
+// message of its own. `cost_usd` is what OpenRouter charged, or what those
+// tokens would have cost at list price on a subscription — `billed` says
+// which. Null when the model had no price to look up.
+export const usage = sqliteTable("usage", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id")
+    .notNull()
+    .references(() => chat.id, { onDelete: "cascade" }),
+  messageId: text("message_id"),
+  modelId: text("model_id").notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  reasoningTokens: integer("reasoning_tokens").notNull().default(0),
+  cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+  cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+  costUsd: real("cost_usd"),
+  billed: integer("billed", { mode: "boolean" }).notNull().default(false),
+  createdAt: timestamp("created_at"),
+});
+
 export const upload = sqliteTable("upload", {
   id: text("id").primaryKey(),
   guestId: text("guest_id").notNull(),
@@ -68,6 +89,11 @@ export const upload = sqliteTable("upload", {
 export const chatRelations = relations(chat, ({ many }) => ({
   messages: many(message),
   artifacts: many(artifact),
+  usage: many(usage),
+}));
+
+export const usageRelations = relations(usage, ({ one }) => ({
+  chat: one(chat, { fields: [usage.chatId], references: [chat.id] }),
 }));
 
 export const messageRelations = relations(message, ({ one }) => ({
@@ -94,3 +120,4 @@ export type DBMessage = typeof message.$inferSelect;
 export type Artifact = typeof artifact.$inferSelect;
 export type ArtifactVersion = typeof artifactVersion.$inferSelect;
 export type Upload = typeof upload.$inferSelect;
+export type Usage = typeof usage.$inferSelect;

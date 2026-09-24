@@ -29,10 +29,12 @@ import {
 import { buildSystemPrompt, titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
 import { artifactTools } from "@/lib/ai/tools/artifacts";
+import { priceTurn, type TurnTokens, type TurnUsage } from "@/lib/ai/usage";
 import {
   createChat,
   getChat,
   saveMessages,
+  saveUsage,
   setChatClaudeSession,
   setChatCodexThread,
   setChatModel,
@@ -150,6 +152,32 @@ async function inlineAttachments(
   );
 }
 
+// The usage the backend reported arrives near the end of its stream, so it is
+// appended as a data part once that stream closes: the reply then carries its
+// own cost, live and after a reload, with no extra request.
+function usageTail<T>(
+  stream: ReadableStream<T>,
+  pending: () => Promise<TurnUsage> | null,
+): ReadableStream<T> {
+  return stream.pipeThrough(
+    new TransformStream<T, T>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk);
+      },
+      async flush(controller) {
+        const turn = await pending()?.catch(() => null);
+        if (turn) {
+          controller.enqueue({
+            type: "data-usage",
+            id: "usage",
+            data: turn,
+          } as T);
+        }
+      },
+    }),
+  );
+}
+
 // RENDR_DEBUG_STREAM=1 appends every raw text delta to data/stream-<chat>.log
 // before the json-render transform sees it — the only way to see what the
 // model literally wrote when a spec fails to render.
@@ -223,6 +251,14 @@ export async function POST(request: Request) {
   // stopped by the stop button, not by the browser leaving the page.
   const abort = beginLiveStream(id);
 
+  // What this turn spent. Each backend reports it once, near the end of its
+  // stream; pricing it is async, so the promise is awaited by the tail below
+  // rather than in the callback.
+  let priced: Promise<TurnUsage> | null = null;
+  const onUsage = (tokens: TurnTokens, reportedCostUsd?: number | null) => {
+    priced = priceTurn({ modelId: model.id, tokens, reportedCostUsd });
+  };
+
   // The two backends produce the same chunk stream: the AI SDK agent loop on
   // OpenRouter, or the Claude Agent SDK on the owner's Claude plan.
   const agentStream = async (): Promise<
@@ -242,6 +278,7 @@ export async function POST(request: Request) {
         threadId: existing?.codexThreadId ?? null,
         pieceContext,
         onThread: (threadId) => setChatCodexThread({ id, threadId }),
+        onUsage,
         abortSignal: abort.signal,
       }) as ReadableStream<InferUIMessageChunk<RendrUIMessage>>;
     }
@@ -257,6 +294,7 @@ export async function POST(request: Request) {
         sessionId: existing?.claudeSessionId ?? null,
         pieceContext,
         onSession: (sessionId) => setChatClaudeSession({ id, sessionId }),
+        onUsage,
         abortSignal: abort.signal,
       }) as ReadableStream<InferUIMessageChunk<RendrUIMessage>>;
     }
@@ -271,6 +309,23 @@ export async function POST(request: Request) {
       agent,
       uiMessages,
       abortSignal: abort.signal,
+      // Every step is a model call; the last one carries the running totals
+      // for the turn, and OpenRouter's own cost with them.
+      onStepFinish: ({ usage, providerMetadata }) => {
+        const accounting = (
+          providerMetadata?.openrouter as { usage?: { cost?: number } }
+        )?.usage;
+        onUsage(
+          {
+            inputTokens: usage.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? 0,
+            reasoningTokens: usage.outputTokenDetails.reasoningTokens ?? 0,
+            cacheReadTokens: usage.inputTokenDetails.cacheReadTokens ?? 0,
+            cacheWriteTokens: usage.inputTokenDetails.cacheWriteTokens ?? 0,
+          },
+          accounting?.cost,
+        );
+      },
       // The provider error is turned into an error chunk here, before the
       // outer stream sees it, so the mapping has to be applied here too.
       onError: describeError,
@@ -286,10 +341,21 @@ export async function POST(request: Request) {
     onError: describeError,
     onEnd: async ({ responseMessage }) => {
       await saveMessages({ chatId: id, messages: [responseMessage] });
+      const turn = await priced?.catch(() => null);
+      if (turn) {
+        await saveUsage({
+          chatId: id,
+          messageId: responseMessage.id,
+          turn,
+        });
+      }
     },
     execute: async ({ writer }) => {
       writer.merge(
-        pipeJsonRender(repairSpecLines(debugTap(await agentStream(), id))),
+        usageTail(
+          pipeJsonRender(repairSpecLines(debugTap(await agentStream(), id))),
+          () => priced,
+        ),
       );
     },
   });

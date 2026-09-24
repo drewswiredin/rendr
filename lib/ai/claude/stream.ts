@@ -13,6 +13,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { Tool, ToolSet, UIMessage, UIMessageChunk } from "ai";
 import type { Effort } from "@/lib/ai/models";
+import type { TurnTokens } from "@/lib/ai/usage";
 import { loadMcpConfig } from "@/lib/mcp/config";
 
 // The subscription backend: rendr's agent loop run by the Claude Agent SDK
@@ -44,6 +45,10 @@ export type ClaudeStreamParams = {
   // Reported by interactive pieces on the stage for this turn.
   pieceContext?: string;
   onSession: (sessionId: string) => Promise<void> | void;
+  // Tokens this turn spent. The SDK also reports its own costUSD, but that
+  // total is cumulative over the session and a resumed one picks up its
+  // transcript's total, so rendr prices the per-turn token counts itself.
+  onUsage?: (tokens: TurnTokens) => void;
   abortSignal?: AbortSignal;
 };
 
@@ -588,6 +593,7 @@ async function run(
       }
       case "result": {
         endStep();
+        reportUsage(msg);
         if (msg.subtype === "success") {
           return true;
         }
@@ -611,6 +617,25 @@ async function run(
         break;
     }
     return undefined;
+  }
+
+  // `usage` is this turn's main-loop total (the prompt is a stream, so the
+  // SDK reports per turn here); cache reads and writes are counted apart so
+  // they can be priced at their own rates.
+  function reportUsage(msg: { usage?: Record<string, unknown> }) {
+    const u = msg.usage;
+    if (!u || !params.onUsage) {
+      return;
+    }
+    const n = (v: unknown) => (typeof v === "number" ? v : 0);
+    const cacheRead = n(u.cache_read_input_tokens);
+    const cacheWrite = n(u.cache_creation_input_tokens);
+    params.onUsage({
+      inputTokens: n(u.input_tokens) + cacheRead + cacheWrite,
+      outputTokens: n(u.output_tokens),
+      cacheReadTokens: cacheRead,
+      cacheWriteTokens: cacheWrite,
+    });
   }
 }
 

@@ -47,6 +47,9 @@ export async function createAgent({
       // other, and the effort is the user's call.
       openrouter: {
         reasoning: effort ? { effort } : { max_tokens: 8_000 },
+        // Usage accounting: the response then carries what this call cost,
+        // which beats pricing the tokens ourselves (lib/ai/pricing).
+        usage: { include: true },
       },
     },
   });

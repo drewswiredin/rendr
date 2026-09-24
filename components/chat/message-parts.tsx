@@ -32,6 +32,7 @@ import {
 import { ArtifactCard } from "./artifact-card";
 import { ResearchTrail } from "./research-trail";
 import { UIRender } from "./ui-render";
+import { type ReplyUsage, UsageLine } from "./usage-line";
 
 const ARTIFACT_TOOLS = new Set([
   "tool-createArtifact",
@@ -115,6 +116,17 @@ export function MessageParts({ message, isStreaming }: MessagePartsProps) {
           }
           if (inTrail.has(index)) {
             return null;
+          }
+
+          // What the reply cost, appended by the API once the backend
+          // reported it (see app/api/chat/route.ts).
+          if (part.type === "data-usage") {
+            return (
+              <UsageLine
+                key={key}
+                usage={(part as { data: ReplyUsage }).data}
+              />
+            );
           }
 
           if (part.type === SPEC_DATA_PART_TYPE) {

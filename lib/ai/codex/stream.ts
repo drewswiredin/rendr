@@ -10,6 +10,7 @@ import {
 } from "@openai/codex-sdk";
 import type { ToolSet, UIMessage, UIMessageChunk } from "ai";
 import type { Effort } from "@/lib/ai/models";
+import type { TurnTokens } from "@/lib/ai/usage";
 import { loadMcpConfig } from "@/lib/mcp/config";
 import {
   bridgeUrl,
@@ -62,6 +63,9 @@ export type CodexStreamParams = {
   // Reported by interactive pieces on the stage for this turn.
   pieceContext?: string;
   onThread: (threadId: string) => Promise<void> | void;
+  // Tokens this turn spent, from turn.completed. Codex reports no cost —
+  // the plan is flat — so rendr prices these itself.
+  onUsage?: (tokens: TurnTokens) => void;
   abortSignal?: AbortSignal;
 };
 
@@ -353,6 +357,16 @@ async function run(
         break;
       }
       case "turn.completed": {
+        const u = event.usage;
+        params.onUsage?.({
+          // Cached input is reported alongside the input count, not inside
+          // it; reasoning output is already part of output_tokens.
+          inputTokens: u.input_tokens + u.cached_input_tokens,
+          outputTokens: u.output_tokens,
+          reasoningTokens: u.reasoning_output_tokens,
+          cacheReadTokens: u.cached_input_tokens,
+          cacheWriteTokens: u.cache_write_input_tokens,
+        });
         endStep();
         return true;
       }

@@ -50,6 +50,11 @@ Other things worth showing:
   level; the picker offers the rungs that model supports, and "Auto" leaves
   the backend's own default. Model and effort are remembered per chat, so
   reopening one comes back to what it last ran with.
+- **What it cost.** Every reply carries its model, its tokens and its price,
+  and the composer shows the running total for the conversation. OpenRouter
+  turns are money that moved; subscription turns show what the same tokens
+  would have cost at list price, marked as not billed. Switch models mid-chat
+  and the breakdown splits per model.
 - **Attachments.** Images, PDFs and text files go to the model.
 
 ## Demo script
@@ -141,6 +146,20 @@ Codex's `modelReasoningEffort`, and OpenRouter's `reasoning.effort` (which
 tops out at `xhigh`; the subscription CLIs also take `max`). On OpenRouter a
 chosen level replaces the default 8k reasoning-token budget, since the API
 takes one or the other.
+
+Chats that predate the table were backfilled from the CLIs' own transcripts —
+Claude Code's session JSONL and Codex's rollouts both record real per-turn
+token counts (`pnpm db:backfill-usage`, safe to re-run). OpenRouter chats from
+before are left blank: nothing local recorded them, and counting the tokens in
+the stored messages would miss the system prompt, tool schemas and cached
+prefix, which are most of the input.
+
+Cost is recorded per model call (`usage` table). OpenRouter reports what it
+charged (usage accounting) and that figure is used as-is; the Codex CLI
+reports tokens only and the Claude Agent SDK's own total is cumulative over a
+session, so both are priced from OpenRouter's public model list — live, cached
+for six hours, with `pricingId` on each catalog entry naming the listing to
+price by. Title generation is not counted yet.
 
 ## Research (MCP)
 

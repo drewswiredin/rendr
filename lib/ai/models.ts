@@ -35,6 +35,11 @@ export type ChatModel = {
   // What the backend is asked for, when that differs from `id`. Omitted on
   // the codex backend means "whatever the CLI defaults to".
   backendModel?: string;
+  // The OpenRouter id this model is priced by (see lib/ai/pricing). The two
+  // subscription backends bill a plan rather than tokens, so their entries
+  // point at the same model's pay-per-token listing: that is what the turn
+  // would have cost.
+  pricingId: string;
   // Effort rungs this model offers, beyond "auto".
   efforts: readonly Effort[];
 };
@@ -55,6 +60,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Anthropic's flagship model",
     backend: "claude",
+    pricingId: "anthropic/claude-opus-5.5",
     efforts: CLI_EFFORTS,
   },
   {
@@ -63,6 +69,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Previous Opus release",
     backend: "claude",
+    pricingId: "anthropic/claude-opus-5",
     efforts: CLI_EFFORTS,
   },
   {
@@ -71,6 +78,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Anthropic's most capable model",
     backend: "claude",
+    pricingId: "anthropic/claude-fable-5.1",
     efforts: CLI_EFFORTS,
   },
   {
@@ -79,6 +87,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Fast and capable",
     backend: "claude",
+    pricingId: "anthropic/claude-sonnet-5",
     efforts: CLI_EFFORTS,
   },
   {
@@ -87,6 +96,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Anthropic's flagship model",
     backend: "openrouter",
+    pricingId: "anthropic/claude-opus-5.5",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -95,6 +105,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Previous Opus release",
     backend: "openrouter",
+    pricingId: "anthropic/claude-opus-5",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -103,6 +114,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Anthropic's most capable model",
     backend: "openrouter",
+    pricingId: "anthropic/claude-fable-5.1",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -111,6 +123,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Previous Fable release",
     backend: "openrouter",
+    pricingId: "anthropic/claude-fable-5",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -120,6 +133,7 @@ export const chatModels: ChatModel[] = [
     description: "OpenAI's most capable model",
     backend: "codex",
     backendModel: "gpt-6-astra",
+    pricingId: "openai/gpt-6-astra",
     efforts: CLI_EFFORTS,
   },
   {
@@ -129,6 +143,7 @@ export const chatModels: ChatModel[] = [
     description: "Frontier agentic model",
     backend: "codex",
     backendModel: "gpt-5.6-sol",
+    pricingId: "openai/gpt-5.6-sol",
     efforts: CLI_EFFORTS,
   },
   {
@@ -138,6 +153,7 @@ export const chatModels: ChatModel[] = [
     description: "Balanced, for everyday work",
     backend: "codex",
     backendModel: "gpt-5.6-terra",
+    pricingId: "openai/gpt-5.6-terra",
     efforts: CLI_EFFORTS,
   },
   {
@@ -147,6 +163,7 @@ export const chatModels: ChatModel[] = [
     description: "Fast and affordable",
     backend: "codex",
     backendModel: "gpt-5.6-luna",
+    pricingId: "openai/gpt-5.6-luna",
     efforts: CLI_EFFORTS,
   },
   {
@@ -155,6 +172,7 @@ export const chatModels: ChatModel[] = [
     provider: "deepseek",
     description: "DeepSeek's flagship model",
     backend: "openrouter",
+    pricingId: "deepseek/deepseek-v4-pro",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -163,6 +181,7 @@ export const chatModels: ChatModel[] = [
     provider: "moonshotai",
     description: "Moonshot AI's flagship model",
     backend: "openrouter",
+    pricingId: "moonshotai/kimi-k3",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -171,6 +190,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "OpenAI's flagship model",
     backend: "openrouter",
+    pricingId: "openai/gpt-5.6-sol",
     efforts: OPENROUTER_EFFORTS,
   },
   {
@@ -179,6 +199,7 @@ export const chatModels: ChatModel[] = [
     provider: "x-ai",
     description: "xAI's flagship model",
     backend: "openrouter",
+    pricingId: "x-ai/grok-4.5",
     efforts: OPENROUTER_EFFORTS,
   },
 ];

@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { useArtifacts } from "@/stores/artifacts";
 import { useHistory } from "@/stores/history";
 import { ChatProvider } from "./chat-context";
+import { ChatCost } from "./chat-cost";
 import { ComposerAttachments } from "./composer-attachments";
 import { EffortPicker } from "./effort-picker";
 import { HistorySidebar } from "./history-sidebar";
@@ -300,6 +301,9 @@ export function Chat({
                       onChange={setEffort}
                       value={effort}
                     />
+                    {/* Reloads when the turn ends, which is when the row
+                        the API just wrote becomes visible. */}
+                    <ChatCost chatId={id} refreshKey={isBusy} />
                   </PromptInputTools>
                   <PromptInputSubmit
                     disabled={!(text.trim() || isBusy)}
