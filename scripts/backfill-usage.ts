@@ -142,7 +142,9 @@ function codexTurns(threadId: string, fallbackModel: string | null): Turn[] {
     }
     turns.push({
       modelId,
-      inputTokens: num(u.input_tokens) + num(u.cached_input_tokens),
+      // Codex counts the cached prompt inside input_tokens (total_tokens is
+      // input + output), unlike Anthropic, which reports the cache apart.
+      inputTokens: num(u.input_tokens),
       outputTokens: num(u.output_tokens),
       reasoningTokens: num(u.reasoning_output_tokens),
       cacheReadTokens: num(u.cached_input_tokens),

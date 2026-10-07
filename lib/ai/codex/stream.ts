@@ -359,9 +359,10 @@ async function run(
       case "turn.completed": {
         const u = event.usage;
         params.onUsage?.({
-          // Cached input is reported alongside the input count, not inside
-          // it; reasoning output is already part of output_tokens.
-          inputTokens: u.input_tokens + u.cached_input_tokens,
+          // input_tokens is the whole prompt, cached part included (its
+          // total_tokens is input + output); reasoning output is likewise
+          // already inside output_tokens. Neither is added again.
+          inputTokens: u.input_tokens,
           outputTokens: u.output_tokens,
           reasoningTokens: u.reasoning_output_tokens,
           cacheReadTokens: u.cached_input_tokens,

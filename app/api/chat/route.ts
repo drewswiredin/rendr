@@ -251,13 +251,44 @@ export async function POST(request: Request) {
   // stopped by the stop button, not by the browser leaving the page.
   const abort = beginLiveStream(id);
 
-  // What this turn spent. Each backend reports it once, near the end of its
-  // stream; pricing it is async, so the promise is awaited by the tail below
-  // rather than in the callback.
-  let priced: Promise<TurnUsage> | null = null;
-  const onUsage = (tokens: TurnTokens, reportedCostUsd?: number | null) => {
-    priced = priceTurn({ modelId: model.id, tokens, reportedCostUsd });
+  // What this turn spent. The CLI backends report once per turn; the AI SDK
+  // reports per step, and a turn that calls a tool is several steps, so the
+  // totals are added up rather than replaced. Pricing is async, so it happens
+  // once at the end — see usageTail below.
+  const spent: TurnTokens = {
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
   };
+  let reported: number | null = null;
+  let spentAnything = false;
+  const onUsage = (tokens: TurnTokens, reportedCostUsd?: number | null) => {
+    spentAnything = true;
+    spent.inputTokens += tokens.inputTokens;
+    spent.outputTokens += tokens.outputTokens;
+    spent.reasoningTokens =
+      (spent.reasoningTokens ?? 0) + (tokens.reasoningTokens ?? 0);
+    spent.cacheReadTokens =
+      (spent.cacheReadTokens ?? 0) + (tokens.cacheReadTokens ?? 0);
+    spent.cacheWriteTokens =
+      (spent.cacheWriteTokens ?? 0) + (tokens.cacheWriteTokens ?? 0);
+    if (
+      typeof reportedCostUsd === "number" &&
+      Number.isFinite(reportedCostUsd)
+    ) {
+      reported = (reported ?? 0) + reportedCostUsd;
+    }
+  };
+  const priceSpent = () =>
+    spentAnything
+      ? priceTurn({
+          modelId: model.id,
+          tokens: spent,
+          reportedCostUsd: reported,
+        })
+      : null;
 
   // The two backends produce the same chunk stream: the AI SDK agent loop on
   // OpenRouter, or the Claude Agent SDK on the owner's Claude plan.
@@ -341,7 +372,7 @@ export async function POST(request: Request) {
     onError: describeError,
     onEnd: async ({ responseMessage }) => {
       await saveMessages({ chatId: id, messages: [responseMessage] });
-      const turn = await priced?.catch(() => null);
+      const turn = await priceSpent()?.catch(() => null);
       if (turn) {
         await saveUsage({
           chatId: id,
@@ -354,7 +385,7 @@ export async function POST(request: Request) {
       writer.merge(
         usageTail(
           pipeJsonRender(repairSpecLines(debugTap(await agentStream(), id))),
-          () => priced,
+          priceSpent,
         ),
       );
     },
