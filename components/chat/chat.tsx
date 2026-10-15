@@ -262,7 +262,6 @@ export function Chat({
               )}
             >
               <PromptInput
-                accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json"
                 globalDrop
                 maxFileSize={20 * 1024 * 1024}
                 multiple
@@ -270,9 +269,7 @@ export function Chat({
                   toast.error(
                     error.code === "max_file_size"
                       ? "Files must be under 20 MB"
-                      : error.code === "accept"
-                        ? "That file type isn't supported"
-                        : error.message,
+                      : error.message,
                   )
                 }
                 onSubmit={handleSubmit}

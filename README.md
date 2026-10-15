@@ -55,7 +55,9 @@ Other things worth showing:
   turns are money that moved; subscription turns show what the same tokens
   would have cost at list price, marked as not billed. Switch models mid-chat
   and the breakdown splits per model.
-- **Attachments.** Images, PDFs and text files go to the model.
+- **Attachments.** Any file can be attached (20 MB each). Images and PDFs go
+  to the model as themselves, text of any kind (source, data, logs) is
+  inlined, and anything else is described by name, type and size.
 
 ## Demo script
 

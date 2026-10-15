@@ -42,6 +42,7 @@ import {
 } from "@/lib/db/queries";
 import { getGuestId } from "@/lib/guest";
 import { repairSpecLines } from "@/lib/ui/spec-repair";
+import { attachmentModelPart } from "@/lib/uploads/content";
 import { readUpload, uploadIdFromUrl } from "@/lib/uploads/store";
 
 export const maxDuration = 120;
@@ -117,7 +118,9 @@ function describeError(error: unknown): string {
 }
 
 // Stored attachments are referenced by short URLs in the persisted messages;
-// the model needs the bytes, so inline them as data URLs for the call only.
+// the model needs the content, so for the call only each becomes what the
+// model can take: images and PDFs as data URLs, text inlined, the rest
+// described.
 async function inlineAttachments(
   messages: RendrUIMessage[],
   guestId: string,
@@ -141,11 +144,11 @@ async function inlineAttachments(
               text: `[attachment unavailable: ${part.filename ?? id}]`,
             };
           }
-          const base64 = Buffer.from(found.bytes).toString("base64");
-          return {
-            ...part,
-            url: `data:${found.row.mediaType};base64,${base64}`,
-          };
+          return attachmentModelPart({
+            name: found.row.name,
+            mediaType: found.row.mediaType,
+            bytes: found.bytes,
+          });
         }),
       ),
     })),

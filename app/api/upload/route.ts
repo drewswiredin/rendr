@@ -1,12 +1,11 @@
 import { getGuestId } from "@/lib/guest";
-import {
-  ALLOWED_MEDIA,
-  MAX_UPLOAD_BYTES,
-  saveUpload,
-} from "@/lib/uploads/store";
+import { looksLikeText } from "@/lib/uploads/content";
+import { MAX_UPLOAD_BYTES, saveUpload } from "@/lib/uploads/store";
 
-// Accepts one or more files as multipart/form-data ("files") and returns
-// their served URLs, which the composer then attaches to the message.
+// Accepts one or more files of any type as multipart/form-data ("files")
+// and returns their served URLs, which the composer then attaches to the
+// message. What the model can do with each one is decided at call time
+// (lib/uploads/content).
 export async function POST(request: Request) {
   const guestId = await getGuestId();
   const form = await request.formData().catch(() => null);
@@ -25,25 +24,28 @@ export async function POST(request: Request) {
 
   const results = [];
   for (const file of files) {
-    const mediaType = file.type || "application/octet-stream";
-    if (!ALLOWED_MEDIA.has(mediaType)) {
-      return Response.json(
-        { error: `unsupported file type: ${mediaType}` },
-        { status: 415 },
-      );
-    }
     if (file.size > MAX_UPLOAD_BYTES) {
       return Response.json(
         { error: `${file.name} is larger than 20 MB` },
         { status: 413 },
       );
     }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    // Browsers know no type for most source and config files and send them
+    // as octet-stream; serving those as text keeps them viewable from the
+    // chat, and the model-side classifier then has less to guess.
+    const unknown = !file.type || file.type === "application/octet-stream";
+    const mediaType = !unknown
+      ? file.type
+      : looksLikeText(bytes)
+        ? "text/plain"
+        : "application/octet-stream";
     results.push(
       await saveUpload({
         guestId,
         name: file.name || "upload",
         mediaType,
-        bytes: new Uint8Array(await file.arrayBuffer()),
+        bytes,
       }),
     );
   }

@@ -15,18 +15,6 @@ const UPLOAD_DIR =
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
-export const ALLOWED_MEDIA = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-  "text/plain",
-  "text/markdown",
-  "text/csv",
-  "application/json",
-]);
-
 export function fileUrl(id: string) {
   return `/api/files/${id}`;
 }
