@@ -20,7 +20,6 @@ import {
   PromptInputBody,
   PromptInputFooter,
   PromptInputHeader,
-  PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
@@ -46,7 +45,7 @@ import { useArtifacts } from "@/stores/artifacts";
 import { useHistory } from "@/stores/history";
 import { ChatProvider } from "./chat-context";
 import { ChatCost } from "./chat-cost";
-import { ComposerAttachments } from "./composer-attachments";
+import { ComposerAttachments, ComposerSubmit } from "./composer-attachments";
 import { EffortPicker } from "./effort-picker";
 import { HistorySidebar } from "./history-sidebar";
 import { MessageParts } from "./message-parts";
@@ -302,8 +301,9 @@ export function Chat({
                         the API just wrote becomes visible. */}
                     <ChatCost chatId={id} refreshKey={isBusy} />
                   </PromptInputTools>
-                  <PromptInputSubmit
-                    disabled={!(text.trim() || isBusy)}
+                  <ComposerSubmit
+                    busy={isBusy}
+                    hasText={text.trim().length > 0}
                     status={status}
                   />
                 </PromptInputFooter>

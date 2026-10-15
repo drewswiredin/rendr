@@ -22,6 +22,12 @@ const sandboxCsp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // With a proxy, Next buffers every request body and silently truncates
+    // it at 10 MB, which breaks /api/upload for anything bigger. Uploads are
+    // one file per request, capped at 20 MB (lib/uploads/store).
+    proxyClientMaxBodySize: "21mb",
+  },
   // Both subscription SDKs spawn a CLI binary resolved from their own package
   // dir, which only works if they aren't bundled.
   serverExternalPackages: [
