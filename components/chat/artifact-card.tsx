@@ -104,9 +104,11 @@ export function ArtifactCard({ part }: { part: ToolUIPart }) {
             ? "The reply ended before this was complete — ask to try again"
             : failed && output && !output.ok
               ? output.error
-              : kind
-                ? kindLabels[kind]
-                : "…"}
+              : part.errorText
+                ? part.errorText
+                : kind
+                  ? kindLabels[kind]
+                  : "…"}
           {done && snapshot && snapshot.versionCount > 1
             ? ` · v${snapshot.version}`
             : ""}

@@ -2,6 +2,7 @@ import "server-only";
 
 import { tool } from "ai";
 import { z } from "zod";
+import type { ArtifactTagStore } from "@/lib/ai/artifact-tags";
 import {
   type ArtifactSnapshot,
   artifactKinds,
@@ -37,16 +38,24 @@ const kindDescription = artifactKinds
   .map((kind) => `'${kind}' (${kindLabels[kind]})`)
   .join(", ");
 
+// With `inlineArtifacts` the model writes artifacts as tags in its reply
+// (lib/ai/artifact-tags) and must not call the two whole-content tools. They
+// stay registered so the tags' tool parts in earlier turns still convert to
+// model messages through toModelOutput, which keeps content out of context.
+const notOnThisModel =
+  "DO NOT CALL on this model: write a <rendr-artifact> tag in your reply instead (see the system prompt). ";
+
 export function artifactTools({
   chatId,
   guestId,
+  inlineArtifacts = false,
 }: {
   chatId: string;
   guestId: string;
+  inlineArtifacts?: boolean;
 }) {
   const createArtifact = tool({
-    description:
-      "Create a new artifact in the shared workspace. YOU write the complete content. Use for living things the user will look at, revisit or iterate on: an interactive/animated piece (html), a diagram (mermaid), or a document (markdown).",
+    description: `${inlineArtifacts ? notOnThisModel : ""}Create a new artifact in the shared workspace. YOU write the complete content. Use for living things the user will look at, revisit or iterate on: an interactive/animated piece (html), a diagram (mermaid), or a document (markdown).`,
     inputSchema: z.object({
       title: z.string().min(1).max(120),
       kind: z.enum(artifactKinds).describe(kindDescription),
@@ -124,8 +133,7 @@ export function artifactTools({
   });
 
   const rewriteArtifact = tool({
-    description:
-      "Replace an artifact's entire content. Use when the change is too large for editArtifact. The title and kind stay the same.",
+    description: `${inlineArtifacts ? notOnThisModel : ""}Replace an artifact's entire content. Use when the change is too large for editArtifact. The title and kind stay the same.`,
     inputSchema: z.object({
       id: z.string(),
       content: z
@@ -199,3 +207,44 @@ export function artifactTools({
 }
 
 export type ArtifactTools = ReturnType<typeof artifactTools>;
+
+// What lib/ai/artifact-tags writes with: the same store calls and the same
+// result shape as createArtifact / rewriteArtifact above.
+export function artifactTagStore({
+  chatId,
+  guestId,
+}: {
+  chatId: string;
+  guestId: string;
+}): ArtifactTagStore {
+  return {
+    async create({ title, kind, content }) {
+      try {
+        const artifact = await createArtifactRow({
+          chatId,
+          title,
+          kind,
+          content,
+        });
+        return { ok: true, artifact, summary: `Created "${title}"` };
+      } catch (error) {
+        return {
+          ok: false,
+          error: `Failed to create artifact: ${String(error)}`,
+        };
+      }
+    },
+    async rewrite({ id, content }) {
+      const current = await getArtifact({ id, guestId });
+      if (!current) {
+        return { ok: false, error: "Artifact not found" };
+      }
+      try {
+        const artifact = await addVersion({ id, content });
+        return { ok: true, artifact, summary: `Rewrote "${artifact.title}"` };
+      } catch (error) {
+        return { ok: false, error: `Failed to save: ${String(error)}` };
+      }
+    },
+  };
+}

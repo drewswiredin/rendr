@@ -2,7 +2,7 @@ import "server-only";
 
 import { type InferAgentUIMessage, stepCountIs, ToolLoopAgent } from "ai";
 import { getMcpTools } from "@/lib/mcp/registry";
-import type { Effort } from "./models";
+import { type Effort, getChatModel } from "./models";
 import { buildSystemPrompt } from "./prompts";
 import { getLanguageModel } from "./providers";
 import { artifactTools } from "./tools/artifacts";
@@ -25,7 +25,12 @@ export async function createAgent({
   pieceContext?: string;
 }) {
   const mcp = await getMcpTools();
-  let instructions = buildSystemPrompt({ mcpServers: mcp.servers });
+  const { inlineArtifacts = false, maxOutputTokens = 32_000 } =
+    getChatModel(modelId);
+  let instructions = buildSystemPrompt({
+    mcpServers: mcp.servers,
+    inlineArtifacts,
+  });
   if (pieceContext) {
     instructions += `\n\n**Current state of interactive pieces on the stage** (reported by the pieces themselves; use it when the user refers to what they did):\n${pieceContext}`;
   }
@@ -34,14 +39,14 @@ export async function createAgent({
     model: getLanguageModel(modelId),
     instructions,
     tools: {
-      ...artifactTools({ chatId, guestId }),
+      ...artifactTools({ chatId, guestId, inlineArtifacts }),
       ...mcp.tools,
     },
     stopWhen: stepCountIs(12),
     // Reasoning counts against the output budget on Anthropic models, so it
     // gets its own cap: a long artifact must never be cut off because the
     // model thought for a while first. 32k output leaves ~20k for content.
-    maxOutputTokens: 32_000,
+    maxOutputTokens,
     providerOptions: {
       // A chosen effort replaces the budget: OpenRouter takes one or the
       // other, and the effort is the user's call.

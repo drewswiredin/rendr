@@ -25,6 +25,8 @@ export const effortLabels: Record<EffortChoice, string> = {
 // OpenRouter's API tops out at xhigh; the subscription CLIs also take max.
 const CLI_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 const OPENROUTER_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+// Gemini's thinking levels stop at high (OpenRouter's `reasoning.supported_efforts`).
+const GEMINI_EFFORTS = ["low", "medium", "high"] as const;
 
 export type ChatModel = {
   id: string;
@@ -42,6 +44,14 @@ export type ChatModel = {
   pricingId: string;
   // Effort rungs this model offers, beyond "auto".
   efforts: readonly Effort[];
+  // Writes artifacts as <rendr-artifact> tags in the reply instead of
+  // createArtifact/rewriteArtifact calls (see lib/ai/artifact-tags). For
+  // models whose function-call arguments don't stream: Gemini sends a call
+  // only once it is complete, and OpenRouter drops a stream that has been
+  // silent for 120 s, so a big artifact never arrives.
+  inlineArtifacts?: boolean;
+  // Output cap per model call; lib/ai/agent's default otherwise.
+  maxOutputTokens?: number;
 };
 
 export const DEFAULT_CHAT_MODEL = "claude-opus-5-5";
@@ -176,6 +186,18 @@ export const chatModels: ChatModel[] = [
     efforts: OPENROUTER_EFFORTS,
   },
   {
+    id: "google/gemini-4-argon",
+    name: "Gemini 4 Argon",
+    provider: "google",
+    description: "Google's flagship reasoning model",
+    backend: "openrouter",
+    pricingId: "google/gemini-4-argon",
+    efforts: GEMINI_EFFORTS,
+    inlineArtifacts: true,
+    // A detailed piece runs past 32k tokens on this model; it allows 940k.
+    maxOutputTokens: 100_000,
+  },
+  {
     id: "moonshotai/kimi-k3",
     name: "Kimi K3",
     provider: "moonshotai",
@@ -254,6 +276,7 @@ if (duplicateIds.length > 0) {
 export const providerLabels: Record<string, string> = {
   anthropic: "Anthropic",
   deepseek: "DeepSeek",
+  google: "Google",
   moonshotai: "Moonshot AI",
   openai: "OpenAI",
   "x-ai": "xAI",

@@ -25,14 +25,31 @@ Restraint rules:
 - For a quick one-off diagram, emit a \`\`\`mermaid fenced code block directly in your reply — it renders live.
 - Use markdown tables directly in prose for small tabular data.`;
 
-export const workspace = `**The stage (artifacts)**
+// Two ways to write an artifact: a tool call, or (inlineArtifacts models) a
+// tag in the reply that lib/ai/artifact-tags turns into the same tool call.
+const writeByTool = `- \`createArtifact({ title, kind, content })\` — add an artifact. YOU write the complete content.
+- \`editArtifact({ id, old_string, new_string })\` — targeted find/replace. Preferred for small changes.
+- \`rewriteArtifact({ id, content })\` — replace the whole content when edits would be too many.`;
+
+const writeByTag = `- To ADD an artifact, write it directly in your reply inside a tag — never through createArtifact, which does not work on this model:
+<rendr-artifact kind="html" title="Orbit simulator">
+…the complete content, raw…
+</rendr-artifact>
+It streams to the stage as you write and becomes an artifact when the tag closes. Open the tag on its own line, close it on its own line, then continue your reply. One tag per artifact.
+- To REPLACE an artifact's whole content, the same tag with its id in place of kind and title (never rewriteArtifact): <rendr-artifact id="…">…</rendr-artifact>
+- \`editArtifact({ id, old_string, new_string })\` — targeted find/replace. Preferred for small changes.`;
+
+export function workspaceSection({
+  inlineArtifacts = false,
+}: {
+  inlineArtifacts?: boolean;
+} = {}) {
+  return `**The stage (artifacts)**
 
 Beside the conversation is a stage: a shared workspace where long-lived artifacts accumulate as you work — things the user will look at for a while, revisit, or iterate on with you. The user sees it as a pane with one tab per artifact; you see the same workspace through tools.
 
 Tools:
-- \`createArtifact({ title, kind, content })\` — add an artifact. YOU write the complete content.
-- \`editArtifact({ id, old_string, new_string })\` — targeted find/replace. Preferred for small changes.
-- \`rewriteArtifact({ id, content })\` — replace the whole content when edits would be too many.
+${inlineArtifacts ? writeByTag : writeByTool}
 - \`readArtifact({ id })\` — read current content and bring it to the front. Use it if the user may have edited the artifact, or if you no longer remember its exact content.
 - \`listArtifacts()\` — the workspace as the user sees it.
 
@@ -44,10 +61,13 @@ Kinds:
 Partition rule: an ephemeral illustration belongs inline in your reply (a \`\`\`mermaid fence, a table). A living thing we will keep working on, or something worth keeping open beside the conversation, goes on the stage.
 
 Etiquette:
-- Pass content RAW in the content argument — never wrapped in code fences.
+- ${inlineArtifacts ? "Content inside the tag is RAW — no code fences around it, nothing else inside the tag." : "Pass content RAW in the content argument — never wrapped in code fences."}
 - After creating or editing an artifact, do NOT repeat its content in chat; the user is looking at it. Reply with a one- or two-sentence note.
 - The user can edit artifacts directly; their edits are the source of truth. readArtifact before editing if they may have changed something.
 - Don't create an artifact for something that fits in a sentence or a small table.`;
+}
+
+export const workspace = workspaceSection();
 
 export const inlineUi = `**Inline UI (in your reply)**
 
@@ -109,14 +129,16 @@ Showing what you found:
 
 export function buildSystemPrompt({
   mcpServers = [],
+  inlineArtifacts = false,
 }: {
   mcpServers?: string[];
+  inlineArtifacts?: boolean;
 } = {}) {
   return [
     identity,
     formSelection,
     inlineUi,
-    workspace,
+    workspaceSection({ inlineArtifacts }),
     pieces,
     research(mcpServers),
   ]

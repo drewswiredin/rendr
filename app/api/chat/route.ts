@@ -12,6 +12,7 @@ import {
 import { after } from "next/server";
 import { z } from "zod";
 import { createAgent, type RendrUIMessage } from "@/lib/ai/agent";
+import { liftArtifactTags } from "@/lib/ai/artifact-tags";
 import { researchServerLines, streamClaude } from "@/lib/ai/claude/stream";
 import { generateClaudeTitle } from "@/lib/ai/claude/title";
 import {
@@ -28,7 +29,7 @@ import {
 } from "@/lib/ai/models";
 import { buildSystemPrompt, titlePrompt } from "@/lib/ai/prompts";
 import { getTitleModel } from "@/lib/ai/providers";
-import { artifactTools } from "@/lib/ai/tools/artifacts";
+import { artifactTagStore, artifactTools } from "@/lib/ai/tools/artifacts";
 import { priceTurn, type TurnTokens, type TurnUsage } from "@/lib/ai/usage";
 import {
   createChat,
@@ -385,11 +386,16 @@ export async function POST(request: Request) {
       }
     },
     execute: async ({ writer }) => {
+      let chunks = debugTap(await agentStream(), id);
+      if (model.inlineArtifacts) {
+        // Artifacts written as tags in the text become tool parts here.
+        chunks = liftArtifactTags(
+          chunks,
+          artifactTagStore({ chatId: id, guestId }),
+        );
+      }
       writer.merge(
-        usageTail(
-          pipeJsonRender(repairSpecLines(debugTap(await agentStream(), id))),
-          priceSpent,
-        ),
+        usageTail(pipeJsonRender(repairSpecLines(chunks)), priceSpent),
       );
     },
   });

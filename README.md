@@ -27,7 +27,7 @@ mechanism and safety boundary:
 | **Prose** | Markdown, code, math, mermaid diagrams | [Streamdown](https://streamdown.ai) renders the stream as it arrives | always on |
 | **Inline UI** | Structured components inside a reply: comparisons, key facts, steps, timelines, charts, itineraries, pros/cons, image grids, questions with choices, small forms | [json-render](https://github.com/vercel-labs/json-render): the model streams a JSON spec against a **typed catalog** (`lib/ui/catalog.ts`, Zod-defined shadcn primitives + composites); the client renders it progressively. Forms and Choices answer back through a `reply` action | constrained vocabulary — the model can only compose what the catalog allows |
 | **Pieces** | Freeform agent-authored HTML: animations, interactives, simulations, 3D scenes, mini-apps | An [MCP Apps](https://modelcontextprotocol.io) host. The piece runs on a **second origin** behind a strict CSP; the only libraries available are a pinned, load-tested CDN manifest (`lib/pieces/manifest.ts` — three, d3, p5, Chart.js, Plotly, Leaflet, matter-js, Tone.js, …). A small `rendr` API lets the piece talk back (`rendr.send()`, `rendr.setContext()`) so the agent knows what the user did | sandboxed origin + CSP + library allow-list |
-| **Artifacts** | Persistent, versioned things: `html` pieces, `mermaid` diagrams, `markdown` documents | The **stage**: a pane of tabs beside the chat. The agent creates and edits through tools (`createArtifact`, `editArtifact`, `rewriteArtifact`, `readArtifact`); the user can edit directly; every change is a version | shared workspace with history |
+| **Artifacts** | Persistent, versioned things: `html` pieces, `mermaid` diagrams, `markdown` documents | The **stage**: a pane of tabs beside the chat. The agent creates and edits through tools (`createArtifact`, `editArtifact`, `rewriteArtifact`, `readArtifact`), or, on models whose tool arguments don't stream (Gemini), as `<rendr-artifact>` tags in the reply that the server lifts into the same tool parts; the user can edit directly; every change is a version | shared workspace with history |
 
 The choice of form is the model's, guided by a prompt rubric
 (`lib/ai/prompts.ts`) that is deliberately restrained: most replies are prose;
@@ -139,7 +139,7 @@ Three backends behind one model picker (`lib/ai/models.ts`):
   cover it). No API key; usage draws from the plan's limits.
   `pnpm exec codex debug models` lists what the login can run — that catalog is
   where these ids come from.
-- **OpenRouter** — Claude via API billing, DeepSeek, Kimi, GPT, Grok — through
+- **OpenRouter** — Claude via API billing, DeepSeek, Gemini, Kimi, GPT, Grok — through
   the AI SDK `ToolLoopAgent`. Needs `OPENROUTER_API_KEY`. Model ids must exist
   on `https://openrouter.ai/api/v1/models`.
 
